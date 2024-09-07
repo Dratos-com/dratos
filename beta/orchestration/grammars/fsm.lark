@@ -1,0 +1,21 @@
+// Finite State Machine (FSM) Grammar
+
+start: fsm
+
+fsm: states transitions initial_state final_states
+
+states: "States:" state+
+state: IDENTIFIER
+
+transitions: "Transitions:" transition+
+transition: IDENTIFIER "->" IDENTIFIER ":" INPUT
+
+initial_state: "Initial State:" IDENTIFIER
+
+final_states: "Final States:" IDENTIFIER ("," IDENTIFIER)*
+
+INPUT: /[a-zA-Z0-9_]+/
+IDENTIFIER: /[a-zA-Z_][a-zA-Z0-9_]*/
+
+%import common.WS
+%ignore WS

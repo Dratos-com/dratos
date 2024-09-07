@@ -1,0 +1,21 @@
+// DAG (Directed Acyclic Graph) Grammar
+
+start: dag
+
+dag: node+
+
+node: IDENTIFIER ":" dependencies? attributes?
+
+dependencies: "->" "[" IDENTIFIER ("," IDENTIFIER)* "]"
+
+attributes: "{" (attribute ("," attribute)*)? "}"
+
+attribute: IDENTIFIER "=" (STRING | NUMBER | BOOLEAN)
+
+IDENTIFIER: /[a-zA-Z_][a-zA-Z0-9_]*/
+STRING: /"[^"]*"/
+NUMBER: /-?\d+(\.\d+)?/
+BOOLEAN: "true" | "false"
+
+%import common.WS
+%ignore WS
