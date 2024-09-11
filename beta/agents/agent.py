@@ -1,3 +1,8 @@
+from __future__ import annotations
+
+import typing
+if typing.TYPE_CHECKING:
+    pass
 from enum import Enum
 from typing import List, Optional
 import daft
@@ -6,7 +11,7 @@ from ray import serve
 from ray.serve.handle import DeploymentHandle, DeploymentResponse
 import numpy as np
 
-from Beta.beta.models.deployments.whisper import whisper_deployment
+from beta.models.deployments.whisper import whisper_deployment
 
 class AgentStatus(str, Enum):
     INIT = "initializing"
@@ -15,8 +20,6 @@ class AgentStatus(str, Enum):
     WAITING = "waiting"
     PROCESSING = "processing"
 
-
-@serve.deployment
 class Agent:
     """
     The base agent class.
@@ -29,8 +32,8 @@ class Agent:
         tools: Optional[List[Tool]] = Field(default=None, description="The tools that the agent can use"),
         is_async: bool = Field(default=False, description="Use asynchrony (i.e. for streaming)."),
         ):
-        self.model = 
-        self.tokenizer = 
+        self.model = model
+        self.tokenizer = Autotokenizer
         self.stt = whisper_delployment
 
         self.status = 
@@ -55,6 +58,7 @@ class Agent:
                 response_model=tool,
                 device="cuda"
             )
+    
 
     def generate(self,re **kwargs):
         
