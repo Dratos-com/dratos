@@ -13,11 +13,13 @@ import daft
 from daft.io import IOConfig, S3Config, GCSConfig, AzureConfig
 import ray
 from openai import AsyncOpenAI, OpenAI
-from unitycatalog import AsyncUnitycatalog, DefaultHttpxClient
+
+# from unitycatalog import AsyncUnitycatalog, DefaultHttpxClient
 import mlflow
-import tritonserver
+
+# import tritonserver
 from pyiceberg.catalog import load_catalog
-from studio.session import Session
+from api.session import Session
 from beta.services.tool_manager import tool_manager
 from beta.models.base import BaseDBModel
 from beta.tools.emotiv_tool import EmotivTool

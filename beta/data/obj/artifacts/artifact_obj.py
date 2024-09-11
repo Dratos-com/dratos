@@ -115,7 +115,7 @@ class Artifact(DataObject):
             ...,
             description="MD5 checksum of the artifact payload",
             example="d41d8cd98f00b204e9800998ecf8427e"
-        )
+        ),
         session_id: ulid.ULID = Field(
             ...,
             description="Unique identifier of the user session during which this artifact was created or last modified",

@@ -9,13 +9,10 @@ import pyarrow as pa
 from datetime import date, datetime
 import ulid
 import json
-from pydantic import Field
-from outlines.models import BaseModel as OutlinesBaseModel
-from dataclasses import dataclass
 import daft
 import typing
-from pydantic import HttpUrl, EmailStr
-from beta.data.obj.base import DataObjectManager
+from pydantic import BaseModel, Field
+from pydantic.dataclasses import dataclass
 
 
 T = TypeVar("T", bound="DataObject")
@@ -34,7 +31,7 @@ class ArrowConversionError(DataObjectError):
 
 
 @dataclass
-class DataObject(OutlinesBaseModel):
+class DataObject(BaseModel):
     """
     Base class for all data objects in the system.
     Provides common fields and methods for Arrow conversion and data manipulation.
@@ -79,9 +76,6 @@ class DataObject(OutlinesBaseModel):
             time: pa.time64("us"),
             uuid.UUID: pa.string(),
             ulid.ulid: pa.string(),
-            HttpUrl: pa.string(),
-            EmailStr: pa.string(),
-            html.Html: pa.string(),  # pa.html()
             Dict[str, str]: pa.map_(pa.string(), pa.string()),
             Dict[str, int]: pa.map_(pa.string(), pa.int64()),
             Dict[str, float]: pa.map_(pa.string(), pa.float64()),
@@ -104,9 +98,6 @@ class DataObject(OutlinesBaseModel):
             List[uuid.UUID]: pa.list_(pa.string()),
             List[ulid.ulid]: pa.list_(pa.string()),
             List[Any]: pa.list_(pa.json()),
-            List[HttpUrl]: pa.list_(pa.string()),
-            List[EmailStr]: pa.list_(pa.string()),
-            List[html.Html]: pa.list_(pa.string()),
             List[Dict[str, str]]: pa.list_(pa.map_(pa.string(), pa.string())),
             List[Dict[str, int]]: pa.list_(pa.map_(pa.string(), pa.int64())),
             List[Dict[str, float]]: pa.list_(pa.map_(pa.string(), pa.float64())),
@@ -140,8 +131,6 @@ class DataObject(OutlinesBaseModel):
                         time,
                         uuid.UUID,
                         ulid.ulid,
-                        HttpUrl,
-                        EmailStr,
                     ),
                 ):
                     arrays.append(pa.array([str(field_value)]))
@@ -174,10 +163,6 @@ class DataObject(OutlinesBaseModel):
                         List[Dict[str, Any]],
                     ):
                         data[field_name] = json.loads(data[field_name][0])
-                    elif field_type == HttpUrl:
-                        data[field_name] = HttpUrl(data[field_name][0])
-                    elif field_type == EmailStr:
-                        data[field_name] = EmailStr(data[field_name][0])
             return cls(**data)
         except Exception as e:
             raise ArrowConversionError(f"Error converting from Arrow: {str(e)}") from e

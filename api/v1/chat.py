@@ -70,7 +70,7 @@ async def get_chat_history():
 
 # ChatApp Ray Actor
 @ray.remote
-class ChatRoom(CustomModel):
+class ChatRoom(DataObject):
     def __init__(
         self,
     ):
@@ -78,7 +78,7 @@ class ChatRoom(CustomModel):
         self.df = daft.from_pyarrow(
             {
                 "id": [],
-                "C" "content": [],
+                "content": [],
                 "role": [],
                 "user_id": [],
                 "agent_id": [],

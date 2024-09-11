@@ -6,7 +6,7 @@ if typing.TYPE_CHECKING:
     pass
 from typing import Any, Dict, Optional
 from pydantic import BaseModel
-from studio.session import Session
+from api.session import Session
 from beta.config.config import config
 
 

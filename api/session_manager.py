@@ -5,7 +5,7 @@ import typing
 if typing.TYPE_CHECKING:
     pass
 from beta.config.config import config
-from studio.session import Session
+from api.session import Session
 
 
 class SessionManager:

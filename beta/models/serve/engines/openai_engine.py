@@ -14,7 +14,7 @@ from outlines.processors import (
     RegexLogitsProcessor,
 )
 from outlines.fsm.json_schema import build_regex_from_schema, convert_json_schema_to_str
-from beta.data.obj.base import DataObject
+from beta.data.obj import DataObject
 
 class OpenAIEngineConfig(DataObject):
     """Configuration for OpenAI Engine."""
@@ -30,8 +30,22 @@ class OpenAIEngineConfig(DataObject):
         1.0,
         description="Nucleus sampling, where p is the probability of the top_p most likely tokens.",
     )
-    top_k: int = Field(0, description="Sample from the top_k most likely tokens.")
-    # Add other supported parameters here
+    frequency_penalty: float = Field(
+        0.0,
+        description="Penalize new tokens based on their existing frequency in the text so far.",
+    )
+    presence_penalty: float = Field(
+        0.0,
+        description="Penalize new tokens based on whether they appear in the text so far.",
+    )
+    stop: Optional[Union[str, List[str]]] = Field(
+        None,
+        description="Up to 4 sequences where the API will stop generating further tokens.",
+    )
+    n: int = Field(
+        1,
+        description="How many chat completion choices to generate for each input message.",
+    )
 
 
 class OpenAIEngine(BaseEngine):
@@ -74,7 +88,7 @@ class OpenAIEngine(BaseEngine):
     async def generate_structured(
         self,
         prompt: Union[str, List[str]],
-        structure: Union[str, Dict, pa.Schema, DataObject, ],
+        structure: Union[str, Dict, pa.Schema, DataObject],
         **kwargs,
     ) -> Any:
         if isinstance(structure, str):
@@ -175,7 +189,9 @@ if __name__ == "__main__":
         mlflow_client = config.get_mlflow()
         engine_config = OpenAIEngineConfig(temperature=0.7, max_tokens=100)
         engine = OpenAIEngine(
-            model_name="gpt-4o", mlflow_client=mlflow_client, config=engine_config
+            model_name="gpt-4o", 
+            mlflow_client=mlflow_client, 
+            config=engine_config
         )
         await engine.initialize()
 

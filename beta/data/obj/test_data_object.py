@@ -1,14 +1,3 @@
-import unittest
-from datetime import datetime, date, time
-import uuid
-import ulid
-import pyarrow as pa
-import json
-from pydantic import HttpUrl, EmailStr
-from ..beta.data.obj.data_object import DataObject, ArrowConversionError
-from typing import List, Dict, Any
-
-
 class TestDataObject(unittest.TestCase):
     def setUp(self):
         class TestObject(DataObject):
@@ -147,7 +136,3 @@ class TestDataObject(unittest.TestCase):
         invalid_data = {"invalid_field": "invalid_value"}
         with self.assertRaises(ArrowConversionError):
             self.TestObject(**invalid_data).to_arrow()
-
-
-if __name__ == "__main__":
-    unittest.main()

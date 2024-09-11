@@ -9,7 +9,7 @@ if typing.TYPE_CHECKING:
 import ray
 from typing import Optional, List
 from deltacat import Namespace, Table, Partition, Delta
-from studio.session import Session
+from api.session import Session
 from beta.services.unity_catalog import UnityCatalogService
 
 

@@ -6,7 +6,7 @@ if typing.TYPE_CHECKING:
     pass
 from typing import Dict, Type
 from beta.tools.base_tool import BaseTool
-from studio.session import Session
+from api.session import Session
 from beta.config.config import config
 
 

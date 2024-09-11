@@ -53,7 +53,7 @@ def parse_vllm_args(cli_args: Dict[str, str]):
 
 
 def build_app(cli_args: Dict[str, str]) -> serve.Application:
-    from studio.deployments.vllm.vllm_deployment import VLLMDeployment
+    from api.deployments.vllm.vllm_deployment import VLLMDeployment
 
     parsed_args = parse_vllm_args(cli_args)
     engine_args = AsyncEngineArgs.from_cli_args(parsed_args)
