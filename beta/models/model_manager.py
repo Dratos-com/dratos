@@ -1,6 +1,6 @@
 from typing import List, Dict, Any, Optional
 import numpy as np
-from beta.models.types.model_accessor import ModelAccessor
+from beta.models.obj.model_accessor import ModelAccessor
 from beta.models.types.base_ml_model import BaseMLModel
 from beta.config.config import Config
 import mlflow
