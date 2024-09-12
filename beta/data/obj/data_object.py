@@ -49,9 +49,7 @@ class DataObject(BaseModel):
     @property
     def created_at(self) -> datetime:
         """Return the creation time based on the ULID."""
-        return (
-            ulid.from_str(self.id).timestamp().datetime
-        )  # Use ulid.from_str instead of ulid.parse
+        return ulid.from_str(self.id).timestamp().datetime
 
     def update_timestamp(self):
         """Update the 'updated_at' timestamp to the current UTC time."""
@@ -65,3 +63,8 @@ class DataObject(BaseModel):
     def get_arrow_schema(cls) -> pa.Schema:
         """Generate an Arrow schema based on the class fields."""
         return get_pyarrow_schema(cls)
+
+    @classmethod
+    def get_daft_schema(cls) -> daft.Schema:
+        """Generate a Daft schema based on the class fields."""
+        return daft.Schema.from_arrow_schema(cls.get_arrow_schema())
