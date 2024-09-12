@@ -6,12 +6,11 @@ from typing import Optional, Dict, Any, ClassVar, Type, TypeVar, List, Union
 import uuid
 import pyarrow as pa
 from datetime import timezone, datetime
-import ulid
+from ulid import ULID
 import json
 import daft
 import typing
 from pydantic import BaseModel, Field
-from pydantic.dataclasses import dataclass
 from pydantic_to_pyarrow import get_pyarrow_schema
 
 
@@ -36,8 +35,8 @@ class DataObject(BaseModel):
     __tablename__: ClassVar[str] = "objects"
     __namespace__: ClassVar[str] = "data"
 
-    id: str = Field(
-        default_factory=lambda: ulid.ulid(), description="ULID Unique identifier"
+    id: ULID = Field(
+        default_factory=lambda: ULID(), description="ULID Unique identifier"
     )
     updated_at: Optional[datetime] = Field(
         default=None, description="UTC timestamp of last update"
@@ -49,11 +48,12 @@ class DataObject(BaseModel):
     @property
     def created_at(self) -> datetime:
         """Return the creation time based on the ULID."""
-        return ulid.from_str(self.id).timestamp().datetime
+        # convert ULID to Timestamp in UTC
+        return self.id.timestamp().datetime
 
     def update_timestamp(self):
         """Update the 'updated_at' timestamp to the current UTC time."""
-        self.updated_at = datetime.now(timezone.utc)  # Use timezone.utc directly
+        self.updated_at = datetime.now(timezone.utc)
 
     @classmethod
     def get_schema(self) -> Dict[str, Any]:

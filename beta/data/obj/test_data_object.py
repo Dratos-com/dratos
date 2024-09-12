@@ -1,6 +1,8 @@
 import unittest
-from datetime import datetime
+import datetime
 import pyarrow as pa
+from ulid import ULID
+
 from data_object import (
     DataObject,
     ULIDValidationError,
@@ -13,12 +15,23 @@ class TestDataObject(unittest.TestCase):
         """Test that the default ID is a valid ULID."""
         obj = DataObject()
         self.assertIsNotNone(obj.id)  # Ensure ID is not None
-        # Further tests can be added to validate the ULID format
+
+        # Check that the ID is a valid ULID
+        self.assertIsInstance(obj.id, ULID)
+        self.assertEqual(len(obj.id), 26)
 
     def test_created_at(self):
         """Test the created_at property for correct timestamp extraction."""
         obj = DataObject()
-        self.assertIsInstance(obj.created_at, datetime)
+
+        # Check that obj.created_at is a datetime object
+        self.assertIsInstance(obj.created_at, datetime.datetime)
+
+        # Check that created_at and updated_at are the same
+        self.assertEqual(obj.created_at, obj.updated_at)
+
+        # Check that timestamp is in UTC
+        self.assertEqual(obj.created_at.tzinfo, datetime.timezone.utc)
 
     def test_update_timestamp(self):
         """Test the update_timestamp method updates 'updated_at' correctly."""

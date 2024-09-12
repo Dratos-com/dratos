@@ -2,23 +2,26 @@ import os
 from typing import Any, Dict, List, Union, Optional
 from openai import OpenAI, AsyncOpenAI
 from pydantic import BaseModel, Field
+
+from beta.data.obj.artifacts.artifact_obj import Artifact
 from .base_engine import BaseEngine
-from beta.models.serve.utils.prompt_utils import prompt
-from beta.data.obj.base import DataObjectSchema
 import mlflow
 import json
 import pyarrow as pa
-from outlines.processors import (
-    OutlinesLogitsProcessor,
-    JSONLogitsProcessor,
-    RegexLogitsProcessor,
-)
-from outlines.fsm.json_schema import build_regex_from_schema, convert_json_schema_to_str
 from beta.data.obj import DataObject
+import tiktoken
 
 class OpenAIEngineConfig(DataObject):
     """Configuration for OpenAI Engine."""
 
+    model_name: str = Field(
+        "o1-preview",
+        description="The name of the OpenAI model to use.",
+    )
+    stream: bool = Field(
+        False,
+        description="Whether to stream the response.",
+    )
     temperature: float = Field(
         0.7,
         description="Sampling temperature, higher values means the model will take more risks.",
@@ -30,6 +33,10 @@ class OpenAIEngineConfig(DataObject):
         1.0,
         description="Nucleus sampling, where p is the probability of the top_p most likely tokens.",
     )
+    top_k: int = Field(
+        40,
+        description="The number of top most likely tokens to consider for generation.",
+    )
     frequency_penalty: float = Field(
         0.0,
         description="Penalize new tokens based on their existing frequency in the text so far.",
@@ -38,20 +45,29 @@ class OpenAIEngineConfig(DataObject):
         0.0,
         description="Penalize new tokens based on whether they appear in the text so far.",
     )
-    stop: Optional[Union[str, List[str]]] = Field(
-        None,
-        description="Up to 4 sequences where the API will stop generating further tokens.",
-    )
     n: int = Field(
         1,
         description="How many chat completion choices to generate for each input message.",
     )
 
+from openai import OpenAI
+client = OpenAI()
 
+response = client.chat.completions.create(
+    model="o1-preview",
+    messages=[
+        {
+            "role": "user", 
+            "content": "Write a bash script that takes a matrix represented as a string with format '[1,2],[3,4],[5,6]' and prints the transpose in the same format."
+        }
+    ]
+)
+
+print(response.choices[0].message.content)
 class OpenAIEngine(BaseEngine):
     def __init__(
         self,
-        model_name: str = "NousResearch/Meta-Llama-3-8B-Instruct",
+        model_name: str = "o1-preview",
         mlflow_client: mlflow.tracking.MlflowClient,
         config: OpenAIEngineConfig = OpenAIEngineConfig(),
     ):
@@ -62,102 +78,101 @@ class OpenAIEngine(BaseEngine):
     async def initialize(self) -> None:
         self.client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         mlflow.openai.autolog()
+    
+    async def shutdown(self) -> None:
+        if self.client:
+            await self.client.close()
 
-    async def generate(self, 
-        prompt: Union[str, List[str]],
-          **kwargs
-          ) -> Any:
+    async def get_model_info(self):
+        model = self.client.models.retrieve(self.model_name)
+        return model
+    
+    async def get_supported_models(self):
+        if not self.client:
+            await self.initialize()
+        models = await self.client.models.list()
+        return [model.id for model in models.data]
+
+    async def generate(self,
+        prompt: str,
+        messages: List[Dict[str, str]], 
+        response_format: BaseModel = None,
+        **kwargs,
+        ):
         
         if not self.client:
             await self.initialize()
 
-        async with mlflow.start_run(run_name=f"OpenAI_{self.model_name}_generation"):
+        # Add the user prompt to the messages
+        messages.append({"role": "user", "content": prompt})
 
+        with self.mlflow_client.start_run(run_name=f"OpenAI_{self.model_name}_generation"):
             response = await self.client.chat.completions.create(
-                model=self.model_name,
-                messages=[
-                    {"role": "user", "content": p}
-                    for p in (prompt if isinstance(prompt, list) else [prompt])
-                ],
-                **{**self.config.dict(), **kwargs},
-            )
-            result = [choice.message.content for choice in response.choices]
-            await self.log_metrics({"tokens": response.usage.total_tokens})
-            return result[0] if isinstance(prompt, str) else result
+                    model=self.model_name,
+                    messages=messages,
+                    response_format=response_format,
+                    **kwargs
+                )
+        result = response.choices[0].message.content
+        self.log_metrics({"total_tokens": response.usage.total_tokens})
+        self.log_metrics({"prompt_tokens": response.usage.prompt_tokens})
+        self.log_metrics({"completion_tokens": response.usage.completion_tokens})
+        self.log_metrics({"prompt_per_token_cost": response.usage.prompt_tokens * 0.00001})
+        self.log_metrics({"completion_per_token_cost": response.usage.completion_tokens * 0.00003})
+    
+        return result 
 
     async def generate_structured(
         self,
         prompt: Union[str, List[str]],
-        structure: Union[str, Dict, pa.Schema, DataObject],
+        structure: Union[str, Dict, pa.Schema, BaseModel],
+        logits_processor: Optional[LogitsProcessor] = None,
         **kwargs,
-    ) -> Any:
+    ):
+        if logits_processor is None:
+            logits_processor = self.get_logits_processor(structure)
+        else:
+            self.logits_processor(logits_processor)
+        result = await self.generate(prompt, **kwargs)
+
+        return result
+    
+    async def get_logits_processor(self, structure: Union[str, dict, pa.Schema, BaseModel]):
+        from outlines.processors import (
+            OutlinesLogitsProcessor,
+            JSONLogitsProcessor,
+            RegexLogitsProcessor,
+        )
+        from outlines.fsm.json_schema import build_regex_from_schema
+
+
         if isinstance(structure, str):
             self.set_logits_processor(
-                RegexLogitsProcessor(structure, self.client.tokenizer)
+                RegexLogitsProcessor(structure)
             )
         elif isinstance(structure, dict):
-            schema_str = convert_json_schema_to_str(structure)
-            regex_str = build_regex_from_schema(schema_str)
+            regex_str = build_regex_from_schema(structure)
             self.set_logits_processor(
                 RegexLogitsProcessor(regex_str, self.client.tokenizer)
             )
         elif isinstance(structure, pa.Schema):
-            json_schema = self._arrow_to_json_schema(structure)
+            json_schema = structure
             schema_str = convert_json_schema_to_str(json_schema)
             regex_str = build_regex_from_schema(schema_str)
             self.set_logits_processor(
                 RegexLogitsProcessor(regex_str, self.client.tokenizer)
             )
-        elif issubclass(structure, DataObjectSchema):
-            json_schema = structure.to_json_schema()
-            schema_str = convert_json_schema_to_str(json_schema)
+        elif issubclass(structure, BaseModel):
+            json_schema = structure.model_json_schema()
+            schema_str = str(json_schema)
             regex_str = build_regex_from_schema(schema_str)
-            self.set_logits_processor(
-                RegexLogitsProcessor(regex_str, self.client.tokenizer)
-            )
+            self.logits_processor = RegexLogitsProcessor(regex_str, self.client.models)
+
         else:
             raise ValueError("Unsupported structure type")
+        
+        return self.logits_processor
 
-        result = await self.generate(prompt, **kwargs)
-
-        if isinstance(structure, (dict, pa.Schema, Type[DataObject])):
-            parsed_result = (
-                json.loads(result)
-                if isinstance(prompt, str)
-                else [json.loads(r) for r in result]
-            )
-            if issubclass(structure, DataObject):
-                return (
-                    structure.from_json(json.dumps(parsed_result))
-                    if isinstance(prompt, str)
-                    else [structure.from_json(json.dumps(r)) for r in parsed_result]
-                )
-            return parsed_result
-        return result
-
-    @staticmethod
-    def _arrow_to_json_schema(arrow_schema: pa.Schema) -> Dict[str, Any]:
-        json_schema = {"type": "object", "properties": {}}
-        for field in arrow_schema:
-            json_schema["properties"][field.name] = {
-                "type": OpenAIEngine._arrow_type_to_json_type(field.type)
-            }
-        return json_schema
-
-    @staticmethod
-    def _arrow_type_to_json_type(arrow_type: pa.DataType) -> str:
-        if pa.types.is_string(arrow_type):
-            return "string"
-        elif pa.types.is_integer(arrow_type):
-            return "integer"
-        elif pa.types.is_floating(arrow_type):
-            return "number"
-        elif pa.types.is_boolean(arrow_type):
-            return "boolean"
-        elif pa.types.is_timestamp(arrow_type):
-            return "string"  # Use ISO 8601 format for timestamps
-        else:
-            return "string"  # Default to string for complex types
 
     @property
     def supported_tasks(self) -> List[str]:
@@ -170,37 +185,9 @@ class OpenAIEngine(BaseEngine):
             **self.config.dict(),
         }
 
-    async def shutdown(self) -> None:
-        if self.client:
-            await self.client.close()
-
-    async def log_metrics(self, metrics: Dict[str, Any]) -> None:
-        for key, value in metrics.items():
-            self.mlflow_client.log_metric(key, value)
 
 
-if __name__ == "__main__":
-    import asyncio
-    from beta.config import Config
-    from beta.models.serve.engines.openai_engine import OpenAIEngine
+    #async def log_artifacts(self, artifacts: List[Artifact]) -> None:
+    #    for artifact in artifacts:
+    #        self.mlflow_client.log_artifact(run_id=self.mlflow_client.active_run().info.run_id, local_path=artifact.path)
 
-    async def main():
-        config = Config()
-        mlflow_client = config.get_mlflow()
-        engine_config = OpenAIEngineConfig(temperature=0.7, max_tokens=100)
-        engine = OpenAIEngine(
-            model_name="gpt-4o", 
-            mlflow_client=mlflow_client, 
-            config=engine_config
-        )
-        await engine.initialize()
-
-        result = await engine.generate(
-            "Explain the concept of machine learning in simple terms.",
-            task="text-generation",
-        )
-        print(result)
-
-        await engine.shutdown()
-
-    asyncio.run(main())
