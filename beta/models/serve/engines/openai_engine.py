@@ -50,20 +50,13 @@ class OpenAIEngineConfig(DataObject):
         description="How many chat completion choices to generate for each input message.",
     )
 
-from openai import OpenAI
-client = OpenAI()
+from outlines.processors import (
+            BaseLogitsProcessor,
+            JSONLogitsProcessor,
+            RegexLogitsProcessor,
+        )
+from outlines.fsm.json_schema import build_regex_from_schema
 
-response = client.chat.completions.create(
-    model="o1-preview",
-    messages=[
-        {
-            "role": "user", 
-            "content": "Write a bash script that takes a matrix represented as a string with format '[1,2],[3,4],[5,6]' and prints the transpose in the same format."
-        }
-    ]
-)
-
-print(response.choices[0].message.content)
 class OpenAIEngine(BaseEngine):
     def __init__(
         self,
@@ -74,6 +67,7 @@ class OpenAIEngine(BaseEngine):
         super().__init__(model_name, mlflow_client, config=config)
         self.client: Optional[Union[OpenAI | AsyncOpenAI]] = None
         self.config = config
+        self.logits_processor: Optional[BaseLogitsProcessor] = None
 
     async def initialize(self) -> None:
         self.client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -126,7 +120,7 @@ class OpenAIEngine(BaseEngine):
         self,
         prompt: Union[str, List[str]],
         structure: Union[str, Dict, pa.Schema, BaseModel],
-        logits_processor: Optional[LogitsProcessor] = None,
+        logits_processor: Optional[BaseLogitsProcessor] = None,
         **kwargs,
     ):
         if logits_processor is None:
@@ -138,12 +132,7 @@ class OpenAIEngine(BaseEngine):
         return result
     
     async def get_logits_processor(self, structure: Union[str, dict, pa.Schema, BaseModel]):
-        from outlines.processors import (
-            OutlinesLogitsProcessor,
-            JSONLogitsProcessor,
-            RegexLogitsProcessor,
-        )
-        from outlines.fsm.json_schema import build_regex_from_schema
+        
 
 
         if isinstance(structure, str):
