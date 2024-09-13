@@ -139,4 +139,4 @@ Please ensure your code adheres to the project's coding standards and includes a
 
 ## License
 
-[Specify the license under which the project is released]
+Apache 2.0
