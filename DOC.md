@@ -7,6 +7,7 @@ This project implements a flexible and efficient machine learning serving system
 - [Project Structure](#project-structure)
 - [Setup](#setup)
 - [Usage](#usage)
+- [Key Abstractions](#key-abstractions)
 - [Components](#components)
   - [Engines](#engines)
   - [Models](#models)
@@ -74,6 +75,72 @@ agent = Agent(engine=engine)
 response = agent.generate("Tell me a joke about programming.")
 print(response)
 ```
+
+## Key Abstractions
+
+This project uses several key abstractions to provide a flexible and extensible architecture:
+
+### 1. Engine
+
+The `Engine` abstraction represents different backend systems for model execution. Key implementations include:
+
+- `OpenAIEngine`: Interfaces with OpenAI's API
+- `VLLMEngine`: Uses the VLLM library for efficient language model inference
+- `TransformersEngine`: Utilizes Hugging Face's Transformers library
+- `LlamaCppEngine`: Integrates with the Llama.cpp library
+- `TritonServerEngine`: Supports NVIDIA's Triton Inference Server
+
+All engines implement a common interface, allowing for easy swapping and integration of new engines.
+
+### 2. Model
+
+The `Model` abstraction represents different types of machine learning models. Key types include:
+
+- `LanguageModel`: For text generation and processing
+- `SpeechToTextModel`: For transcription tasks
+- `StructuredGenerationModel`: For generating structured outputs
+
+Models are implemented as subclasses of `BaseModel` and can be extended to support new model types.
+
+### 3. Tool
+
+The `Tool` abstraction represents utility functions that can be used by agents. Examples include:
+
+- `CalculatorTool`: For performing mathematical calculations
+- `DataframeTool`: For working with structured data
+- `KnowledgeBaseTool`: For managing and querying a knowledge base
+
+Tools are implemented as subclasses of `BaseTool` and can be easily extended.
+
+### 4. Agent
+
+The `Agent` abstraction represents an entity that can use models and tools to perform tasks. Agents can be configured with different models and sets of tools to handle various tasks.
+
+### 5. DataObject
+
+The `DataObject` abstraction is a base class for all data objects in the system. It provides common fields and methods for data manipulation, including conversion to and from Arrow format.
+
+### 6. Task
+
+The `Task` abstraction represents a unit of work to be performed by an agent. Tasks can be chained together to form complex workflows.
+
+### 7. Environment
+
+The `Environment` abstraction represents the context in which agents operate. It can include configuration settings, available resources, and constraints.
+
+### 8. Prompt
+
+The `Prompt` abstraction represents a template for generating text prompts. It uses Jinja2 for template rendering and supports dynamic prompt generation based on input parameters.
+
+### 9. KnowledgeBase
+
+The `KnowledgeBase` abstraction represents a collection of information that can be queried and updated by agents and tools.
+
+### 10. Deployment
+
+The `Deployment` abstraction represents a served model or application. It handles the lifecycle of deploying and managing models in production environments.
+
+These abstractions work together to create a flexible and powerful system for AI model serving and task execution. The modular design allows for easy extension and customization to meet specific use cases.
 
 ## Components
 
