@@ -132,9 +132,7 @@ class OpenAIEngine(BaseEngine):
         return result
     
     async def get_logits_processor(self, structure: Union[str, dict, pa.Schema, BaseModel]):
-        
-
-
+        """Get the logits processor for the given structure."""
         if isinstance(structure, str):
             self.set_logits_processor(
                 RegexLogitsProcessor(structure)

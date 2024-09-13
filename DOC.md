@@ -40,7 +40,7 @@ The project is organized into several key directories:
 pip install -r requirements.txt
 ```
 
-2. Set up the necessary environment variables, including API keys for various services (e.g., OpenAI, VLLM).
+2. Set up the necessary environment variables, including API keys for various services (e.g., OpenAI, VLLM) in `.env.local`. You can use `.env.example` as a template.
 
 3. Initialize the Ray cluster if using distributed computing features.
 
@@ -49,14 +49,28 @@ pip install -r requirements.txt
 Here's a basic example of how to use the system:
 
 ```python
-python
-from beta import Agent
-from beta.models.serve.engines import OpenAIEngine
-Initialize the engine
-engine = OpenAIEngine(model_name="gpt-3.5-turbo", mlflow_client=mlflow.tracking.MlflowClient())
-Create an agent
+from beta import Agents, Models, Tools, Data
+import mlflow
+
+# Initialize the mlflow tracking server
+
+
+# Initialize the engine
+engine = VLLMEngine(
+  model_name="NousResearch/Nous-Hermes-2-Mixtral-8x7B-DPO", mlflow_client=mlflow_client
+)
+
+# Get the model
+model = Models.get(
+  model_name="gpt-3.5-turbo",
+  engine=engine,
+  mlflow_client=mlflow_client
+)
+
+# Create an agent
 agent = Agent(engine=engine)
-Generate text
+
+# Generate text
 response = agent.generate("Tell me a joke about programming.")
 print(response)
 ```

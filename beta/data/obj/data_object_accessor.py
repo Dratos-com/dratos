@@ -2,10 +2,27 @@ from typing import Type, List, Optional, Dict, Any
 import daft
 from daft.io import IOConfig
 from pyiceberg.table import Table as PyIcebergTable
-import deltacat
 from beta.data.obj.data_object import DataObject
 import pyarrow as pa
 import numpy as np
+import lancedb
+
+uri = "data/sample-lancedb"
+db = lancedb.connect(uri)
+table = db.create_table("my_table",
+                         data=[{"vector": [3.1, 4.1], "item": "foo", "price": 10.0},
+                               {"vector": [5.9, 26.5], "item": "bar", "price": 20.0}])
+result = table.search([100, 100]).limit(2).to_pandas()
+
+class DataObjectTable:
+    """
+    Table for DataObject subclasses who inherit the __tablename__ and __namespace__ class variables.
+    """
+
+    def __init__(self, data_object_class: Type[DataObject]):
+        self.data_object_class = data_object_class
+        self.namespace = data_object_class.__tablename__
+        self.table_name = f"{self.namespace}.{data_object_class.__name__}"
 
 
 class DataAccessor:
@@ -52,6 +69,49 @@ class DataAccessor:
         """Retrieve a single data object by its ID."""
         df = self.get_data(filter_expr=daft.col("id") == object_id)
         return self.data_object_class.from_daft_dataframe(df.collect())
+    
+    def _sorted_bucket_merge_join(self, left: daft.DataFrame, right: daft.DataFrame, on: List[str], how: str = "inner") -> daft.DataFrame:
+        """Perform a sorted bucket merge join on the two DataFrames."""
+        return left.join(right, on=on, how=how, join_type="sorted_bucket_merge")
+
+    def prep_for_upsert(self, new_data_objects: List[DataObject]) -> daft.DataFrame:
+        """
+        Prepare data objects for upsert by performing a sorted bucket merge join.
+        
+        :param new_data_objects: List of new DataObjects to be upserted
+        :return: DataFrame ready for upsert
+        """
+        # Convert new data objects to a Daft DataFrame
+        new_df = self.data_object_class.to_daft_dataframe(new_data_objects)
+        
+        # Get existing data
+        existing_df = self.get_data()
+        
+        # Perform sorted bucket merge join
+        merged_df = 
+        
+        # Coalesce values, preferring the new data
+        for column in merged_df.column_names:
+            if column != "id":
+                merged_df = merged_df.with_column(
+                    daft.col(f"{column}_right").fill_null(daft.col(f"{column}_left")).alias(column)
+                )
+        
+        # Select only the relevant columns
+        result_df = merged_df.select(self.data_object_class.get_column_names())
+        
+        return result_df.sort("id")
+
+    def upsert_data_objects(self, new_data_objects: List[DataObject]):
+        """
+        Upsert new data objects into the existing dataset.
+        """
+        upsert_df = self.prep_for_upsert(new_data_objects)
+        deltacat_dataset = deltacat.Dataset(self.namespace, self.table_name)
+        deltacat_dataset.write(upsert_df.to_arrow(), io_config=self.io_config, mode="overwrite")
+
+
+    
 
     def write_data_objects(self, data_objects: List[DataObject]):
         """Write a list of data objects to the DeltaCat dataset."""
