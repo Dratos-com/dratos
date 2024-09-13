@@ -7,6 +7,7 @@ This project implements a flexible and efficient machine learning serving system
 - [Project Structure](#project-structure)
 - [Setup](#setup)
 - [Usage](#usage)
+- [Key Abstractions](#key-abstractions)
 - [Components](#components)
   - [Engines](#engines)
   - [Models](#models)
@@ -60,6 +61,7 @@ Generate text
 response = agent.generate("Tell me a joke about programming.")
 print(response)
 ```
+
 ## Key Abstractions
 
 This project uses several key abstractions to provide a flexible and extensible architecture:
