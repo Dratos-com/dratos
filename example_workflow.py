@@ -1,96 +1,62 @@
-from beta import Agents, Models, Tools, Data
-import mlflow
+# Example of how to create and deploy the Agent
+from typing import Any, Dict
+from api.deployments.agents.SpeechAgent import AgentRequest
+from api.deployments.vllm.vllm_deployment import VLLMDeployment
+from api.deployments.embeddings.embedding_deployment import EmbeddingDeployment
+from api.deployments.whisper.whisper_deployment import WhisperDeployment
+from beta.agents import deployments
+from beta.agents.obj.agent_obj import Agent
 
-# Initialize MLflow client
-mlflow_client = mlflow.tracking.MlflowClient()
 
-# Initialize the VLLM engine with a large language model
-engine = Models.VLLMEngine(
-    model_name="NousResearch/Nous-Hermes-2-Mixtral-8x7B-DPO",
-    mlflow_client=mlflow_client
-)
+def create_agent_deployment(
+    name: str,
+    model_args: Dict[str, Any],
+    embedding_args: Dict[str, Any],
+    stt_args: Dict[str, Any],
+) -> deployments:
+    vllm_deployment = VLLMDeployment.bind(**model_args)
+    whisper_deployment = WhisperDeployment.bind(**stt_args)
+    # Assuming you have an embedding deployment similar to VLLMDeployment
+    embedding_deployment = EmbeddingDeployment.bind(**embedding_args)
 
-# Get the language model
-language_model = Models.get(
-    model_name="gpt-3.5-turbo",
-    engine=engine,
-    mlflow_client=mlflow_client
-)
+    return Agent.bind(
+        name=name,
+        model=vllm_deployment,
+        embedding=embedding_deployment,
+        stt=whisper_deployment,
+    )
 
-# Initialize tools
-sentiment_tool = Tools.get("SentimentAnalysisTool")
-entity_extraction_tool = Tools.get("EntityExtractionTool")
-summarization_tool = Tools.get("SummarizationTool")
-knowledge_graph_tool = Tools.get("KnowledgeGraphTool")
-qa_tool = Tools.get("QuestionAnsweringTool")
-
-# Create an agent with the model and tools
-agent = Agents.TextAnalysisAgent(
-    model=language_model,
-    tools=[
-        sentiment_tool,
-        entity_extraction_tool,
-        summarization_tool,
-        knowledge_graph_tool,
-        qa_tool
-    ]
-)
-
-# Create a knowledge base to store analysis results
-knowledge_base = Data.KnowledgeBase()
-
-def analyze_document(document):
-    # Task 1: Sentiment Analysis
-    sentiment = agent.use_tool(sentiment_tool, document)
-    knowledge_base.add("sentiment", sentiment)
-
-    # Task 2: Entity Extraction
-    entities = agent.use_tool(entity_extraction_tool, document)
-    knowledge_base.add("entities", entities)
-
-    # Task 3: Summarization
-    summary = agent.use_tool(summarization_tool, document)
-    knowledge_base.add("summary", summary)
-
-    # Task 4: Knowledge Graph Creation
-    knowledge_graph = agent.use_tool(knowledge_graph_tool, entities)
-    knowledge_base.add("knowledge_graph", knowledge_graph)
-
-    # Task 5: Question Answering
-    def answer_question(question):
-        return agent.use_tool(qa_tool, {
-            "question": question,
-            "context": document,
-            "knowledge_base": knowledge_base
-        })
-
-    return {
-        "sentiment": sentiment,
-        "entities": entities,
-        "summary": summary,
-        "knowledge_graph": knowledge_graph,
-        "answer_question": answer_question
-    }
-
-# Example usage
 if __name__ == "__main__":
-    document = """
-    Artificial Intelligence (AI) is revolutionizing various industries. 
-    Machine Learning, a subset of AI, enables systems to learn from data. 
-    Natural Language Processing allows computers to understand human language. 
-    These technologies are driving innovation in fields like healthcare, 
-    finance, and transportation.
-    """
-    
-    results = analyze_document(document)
+    import ray
+    from ray import serve
 
-    print("Document Summary:", results["summary"])
-    print("Overall Sentiment:", results["sentiment"])
-    print("Key Entities:", results["entities"])
-    print("Knowledge Graph:", results["knowledge_graph"])
+    ray.init()
+    serve.start()
 
-    # Ask questions about the document
-    question = "What are the main applications of AI mentioned in the document?"
-    answer = results["answer_question"](question)
-    print("Q:", question)
-    print("A:", answer)
+    agent_deployment = create_agent_deployment(
+        name="my-agent",
+        model_args={
+            "model": "NousResearch/Meta-Llama-3-8B-Instruct",
+            "tensor_parallel_size": 1,
+            "max_num_batched_tokens": 4096,
+            "trust_remote_code": True,
+        },
+        embedding_args={},  # Add embedding model arguments
+        stt_args={},  # Add Whisper model arguments
+    )
+
+    serve.run(agent_deployment)
+
+    # Example usage
+    from ray.serve.handle import DeploymentHandle
+
+    handle = serve.get_deployment("Agent").get_handle()
+    response = ray.get(
+        handle.process.remote(
+            AgentRequest(prompt="What are some highly rated restaurants in San Francisco?")
+        )
+    )
+    print(response)
+
+    serve.shutdown()
+    ray.shutdown()
