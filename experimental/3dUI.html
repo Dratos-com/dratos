@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Agent Workflow Layout</title>
+    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.154.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.154.0/examples/jsm/"
+        }
+    }
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.7/dat.gui.min.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // Initialize Three.js scene, camera, and renderer
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Create a group to hold all agents
+        const agentsGroup = new THREE.Group();
+        scene.add(agentsGroup);
+
+        // Add ambient light to the scene
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        scene.add(ambientLight);
+
+        // Add directional light to the scene
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+        directionalLight.position.set(5, 5, 5);
+        scene.add(directionalLight);
+
+        // Function to create an agent mesh
+        function createAgentMesh(color) {
+            const geometry = new THREE.BoxGeometry(1, 1, 1);
+            const material = new THREE.MeshPhongMaterial({ color: color });
+            return new THREE.Mesh(geometry, material);
+        }
+
+        // Modify the addAgent function to include properties
+        function addAgent(name, x, y, z, color, properties = {}) {
+            const agentMesh = createAgentMesh(color);
+            agentMesh.position.set(x, y, z);
+            agentMesh.name = name;
+            agentMesh.userData = { properties: properties };
+            agentsGroup.add(agentMesh);
+        }
+
+        // Add sample agents with properties
+        addAgent("Agent1", -2, 0, 0, 0xff0000, { type: "Processor", status: "Active" });
+        addAgent("Agent2", 0, 0, 0, 0x00ff00, { type: "Analyzer", status: "Idle" });
+        addAgent("Agent3", 2, 0, 0, 0x0000ff, { type: "Responder", status: "Active" });
+
+        // Add connections between agents
+        function addConnection(agent1, agent2) {
+            const points = [];
+            points.push(agent1.position);
+            points.push(agent2.position);
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            const material = new THREE.LineBasicMaterial({ color: 0xffffff });
+            const line = new THREE.Line(geometry, material);
+            agentsGroup.add(line);
+        }
+
+        addConnection(agentsGroup.getObjectByName("Agent1"), agentsGroup.getObjectByName("Agent2"));
+        addConnection(agentsGroup.getObjectByName("Agent2"), agentsGroup.getObjectByName("Agent3"));
+
+        // Adjust camera position
+        camera.position.set(0, 5, 10);
+        camera.lookAt(0, 0, 0);
+
+        // Variables for connection creation
+        let isCreatingConnection = false;
+        let firstAgent = null;
+
+        // Raycaster for object selection
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        // Add this variable to track if the mouse has moved during a click
+        let hasMoved = false;
+
+        // Function to handle agent selection
+        function selectAgent(agent) {
+            if (isCreatingConnection) {
+                if (!firstAgent) {
+                    firstAgent = agent;
+                } else {
+                    addConnection(firstAgent, agent);
+                    isCreatingConnection = false;
+                    firstAgent = null;
+                }
+            } else {
+                displayAgentProperties(agent);
+            }
+        }
+
+        // Function to display agent properties
+        function displayAgentProperties(agent) {
+            const propertiesDiv = document.getElementById('agentProperties');
+            const properties = agent.userData?.properties || {};
+            propertiesDiv.innerHTML = `
+                <h3>${agent.name} Properties</h3>
+                <p>Position: ${agent.position.x.toFixed(2)}, ${agent.position.y.toFixed(2)}, ${agent.position.z.toFixed(2)}</p>
+                ${Object.entries(properties).map(([key, value]) => `<p>${key}: ${value}</p>`).join('')}
+            `;
+        }
+
+        // Add these variables for drag-and-drop functionality
+        let isDragging = false;
+        let selectedAgent = null;
+        const dragPlane = new THREE.Plane();
+        const dragOffset = new THREE.Vector3();
+
+        // Modify the onMouseDown function (previously onMouseClick)
+        function onMouseDown(event) {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+
+            const intersects = raycaster.intersectObjects(agentsGroup.children);
+
+            if (intersects.length > 0) {
+                if (isCreatingConnection) {
+                    selectAgent(intersects[0].object);
+                } else {
+                    selectedAgent = intersects[0].object;
+                    isDragging = true;
+                    hasMoved = false; // Reset the move tracker
+                    dragPlane.setFromNormalAndCoplanarPoint(camera.getWorldDirection(dragPlane.normal), selectedAgent.position);
+                    raycaster.ray.intersectPlane(dragPlane, dragOffset);
+                    dragOffset.sub(selectedAgent.position);
+                    renderer.domElement.style.cursor = 'move';
+                    controls.enabled = false; // Disable OrbitControls
+                }
+            }
+        }
+
+        // Modify the onMouseMove function
+        function onMouseMove(event) {
+            if (isDragging && selectedAgent) {
+                hasMoved = true; // Set this to true as soon as the mouse moves while dragging
+                mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+                mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
+
+                raycaster.setFromCamera(mouse, camera);
+                const intersectPoint = new THREE.Vector3();
+                if (raycaster.ray.intersectPlane(dragPlane, intersectPoint)) {
+                    selectedAgent.position.copy(intersectPoint.sub(dragOffset));
+
+                    // Update connections
+                    agentsGroup.children.forEach(child => {
+                        if (child instanceof THREE.Line) {
+                            const positions = child.geometry.attributes.position.array;
+                            const start = new THREE.Vector3(positions[0], positions[1], positions[2]);
+                            const end = new THREE.Vector3(positions[3], positions[4], positions[5]);
+                            
+                            if (start.equals(selectedAgent.position) || end.equals(selectedAgent.position)) {
+                                child.geometry.setFromPoints([selectedAgent.position, start.equals(selectedAgent.position) ? end : start]);
+                                child.geometry.attributes.position.needsUpdate = true;
+                            }
+                        }
+                    });
+                }
+            }
+        }
+
+        // Modify the onMouseUp function
+        function onMouseUp(event) {
+            if (isDragging) {
+                isDragging = false;
+                if (!hasMoved) {
+                    // If the mouse hasn't moved, treat this as a click and display properties
+                    displayAgentProperties(selectedAgent);
+                }
+                selectedAgent = null;
+                renderer.domElement.style.cursor = 'auto';
+                controls.enabled = true; // Re-enable OrbitControls
+            }
+        }
+
+        // Modify the animate function to update the raycaster
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            
+            if (isDragging) {
+                raycaster.setFromCamera(mouse, camera);
+            }
+            
+            renderer.render(scene, camera);
+        }
+
+        // Add orbit controls
+        const controls = new OrbitControls(camera, renderer.domElement);
+
+        // Initialize dat.GUI
+        const gui = new dat.GUI();
+
+        // Set up dat.GUI for user interaction
+        const guiParams = {
+            addAgent: function() {
+                const name = prompt("Enter agent name:");
+                if (name) {
+                    const x = Math.random() * 4 - 2;
+                    const y = Math.random() * 4 - 2;
+                    const z = Math.random() * 4 - 2;
+                    const color = Math.random() * 0xffffff;
+                    const type = prompt("Enter agent type:");
+                    const status = prompt("Enter agent status:");
+                    addAgent(name, x, y, z, color, { type, status });
+                }
+            },
+            removeAgent: function() {
+                const name = prompt("Enter agent name to remove:");
+                if (name) {
+                    const agent = agentsGroup.getObjectByName(name);
+                    if (agent) {
+                        agentsGroup.remove(agent);
+                    }
+                }
+            },
+            createConnection: function() {
+                isCreatingConnection = true;
+                firstAgent = null;
+                alert("Click on two agents to create a connection");
+            }
+        };
+        gui.add(guiParams, 'addAgent');
+        gui.add(guiParams, 'removeAgent');
+        gui.add(guiParams, 'createConnection');
+
+        // Animation loop
+        animate();
+
+        // Handle window resize
+        window.addEventListener('resize', function() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }, false);
+
+        // Update event listeners
+        renderer.domElement.addEventListener('mousedown', onMouseDown, false);
+        renderer.domElement.addEventListener('mousemove', onMouseMove, false);
+        renderer.domElement.addEventListener('mouseup', onMouseUp, false);
+    </script>
+    <div id="agentProperties" style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 10px;"></div>
+</body>
+</html>

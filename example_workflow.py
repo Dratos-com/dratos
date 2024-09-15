@@ -1,11 +1,19 @@
 # Example of how to create and deploy the Agent
 from typing import Any, Dict
+
+
 from api.deployments.agents.SpeechAgent import AgentRequest
 from api.deployments.vllm.vllm_deployment import VLLMDeployment
 from api.deployments.embeddings.embedding_deployment import EmbeddingDeployment
 from api.deployments.whisper.whisper_deployment import WhisperDeployment
+
+from beta import Agents, Data, Models, Tools
+
+from 
 from beta.agents import deployments
-from beta.agents.obj.agent_obj import Agent
+from beta.agents.obj. import Agent
+
+from beta.models.engines import BaseEngine, OpenAIEngine
 
 
 def create_agent_deployment(
@@ -26,6 +34,12 @@ def create_agent_deployment(
         stt=whisper_deployment,
     )
 
+
+
+ 
+
+
+
 if __name__ == "__main__":
     import ray
     from ray import serve
@@ -33,7 +47,7 @@ if __name__ == "__main__":
     ray.init()
     serve.start()
 
-    agent_deployment = create_agent_deployment(
+    _deployment = create_agent_deployment(
         name="my-agent",
         model_args={
             "model": "NousResearch/Meta-Llama-3-8B-Instruct",
@@ -44,6 +58,7 @@ if __name__ == "__main__":
         embedding_args={},  # Add embedding model arguments
         stt_args={},  # Add Whisper model arguments
     )
+
 
     serve.run(agent_deployment)
 
