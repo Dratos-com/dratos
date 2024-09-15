@@ -1,0 +1,105 @@
+# Dratos Beta Configuration File
+
+# Storage Configuration
+storage:
+  s3: # Overwritten with environment variables
+    region: "us-west-2" # AWS_REGION
+    endpoint_url: null # AWS_ENDPOINT_URL
+    access_key_id: "" # AWS_ACCESS_KEY_ID
+    secret_access_key: "" # AWS_SECRET_ACCESS_KEY
+    session_token: null # AWS_SESSION_TOKEN
+    anonymous: false # AWS_ANONYMOUS
+    virtual_hosted_style: false # AWS_VIRTUAL_HOSTED_STYLE
+    s3_express: false # AWS_S3_EXPRESS
+    server_side_encryption: false # AWS_SERVER_SIDE_ENCRYPTION
+    sse_kms_key_id: null # AWS_SSE_KMS_KEY_ID
+    sse_bucket_key_enabled: false # AWS_SSE_BUCKET_KEY_ENABLED
+    expiry: 3600 # AWS_EXPIRY
+    buffer_time: 300 # AWS_BUFFER_TIME
+    max_connections: 10 # AWS_MAX_CONNECTIONS
+    retry_initial_backoff_ms: 100 # AWS_RETRY_INITIAL_BACKOFF_MS
+    connect_timeout_ms: 1000 # AWS_CONNECT_TIMEOUT_MS
+    read_timeout_ms: 1000 # AWS_READ_TIMEOUT_MS
+    num_tries: 3 # AWS_NUM_TRIES
+    retry_mode: "standard" # AWS_RETRY_MODE
+    use_ssl: true # AWS_USE_SSL
+    verify_ssl: true # AWS_VERIFY_SSL
+    check_hostname_ssl: true # AWS_CHECK_HOSTNAME_SSL
+    requester_pays: false # AWS_REQUESTER_PAYS
+    force_virtual_addressing: false # AWS_FORCE_VIRTUAL_ADDRESSING
+    profile_name: "default" # AWS_PROFILE_NAME
+
+  gcs: # Overwritten with environment variables
+    project_id: "" # GOOGLE_CLOUD_PROJECT
+    credentials: "" # GOOGLE_APPLICATION_CREDENTIALS
+    token: null # GOOGLE_OAUTH_ACCESS_TOKEN
+    anonymous: false # GOOGLE_ANONYMOUS
+    google_service_account: null # GOOGLE_SERVICE_ACCOUNT
+    google_service_account_key: null # GOOGLE_SERVICE_ACCOUNT_KEY
+
+  azure: # Overwritten with environment variables
+    storage_account: "" # AZURE_STORAGE_ACCOUNT
+    access_key: "" # AZURE_STORAGE_ACCESS_KEY
+    sas_token: null # AZURE_STORAGE_SAS_TOKEN
+    tenant_id: "" # AZURE_TENANT_ID
+    client_id: "" # AZURE_CLIENT_ID
+    client_secret: "" # AZURE_CLIENT_SECRET
+    anonymous: false # AZURE_ANONYMOUS
+    storage_account_key: null # AZURE_STORAGE_ACCOUNT_KEY
+
+    # Additional Azure Storage Config Options for LanceDB
+    azure_storage_token: null # AZURE_STORAGE_TOKEN
+    azure_storage_use_emulator: false # AZURE_STORAGE_USE_EMULATOR
+    azure_endpoint: null # AZURE_ENDPOINT
+    azure_use_fabric_endpoint: false # AZURE_USE_FABRIC_ENDPOINT
+    azure_msi_endpoint: null # AZURE_MSI_ENDPOINT
+    azure_object_id: null # AZURE_OBJECT_ID
+    azure_msi_resource_id: null # AZURE_MSI_RESOURCE_ID
+    azure_federated_token_file: null # AZURE_FEDERATED_TOKEN_FILE
+    azure_use_azure_cli: false # AZURE_USE_AZURE_CLI
+    azure_disable_tagging: false # AZURE_DISABLE_TAGGING
+
+  local:
+    local_path: "~/lancedb" # LOCAL_STORAGE_PATH
+    anonymous: false # LOCAL_STORAGE_ANONYMOUS
+
+# LanceDB Configuration
+lance:
+  allow_http: false # LANCE_ALLOW_HTTP
+  allow_invalid_certificates: false # LANCE_ALLOW_INVALID_CERTIFICATES
+  connect_timeout: null # LANCE_CONNECT_TIMEOUT
+  timeout: null # LANCE_TIMEOUT
+  user_agent: null # LANCE_USER_AGENT
+  proxy_url: null # LANCE_PROXY_URL
+  proxy_ca_certificate: null # LANCE_PROXY_CA_CERTIFICATE
+  proxy_excludes: null # LANCE_PROXY_EXCLUDES
+
+# Daft Configuration
+daft:
+
+# Ray Configuration
+ray:
+  address: "auto" # Ray cluster address; 'auto' to auto-detect
+  runtime_env:
+    working_dir: null # RAY_RUNTIME_ENV_WORKING_DIR
+    pip: null # RAY_RUNTIME_ENV_PIP
+    num_cpus: null # RAY_NUM_CPUS
+    num_gpus: null # RAY_NUM_GPUS
+    resources: {}
+    object_store_memory: null # RAY_OBJECT_STORE_MEMORY
+    local_mode: false # RAY_LOCAL_MODE
+    include_dashboard: true # Whether to include the Ray dashboard
+    dashboard_host: "127.0.0.1" # RAY_DASHBOARD_HOST
+    dashboard_port: 8265 # RAY_DASHBOARD_PORT
+    logging_level: "info" # RAY_LOGGING_LEVEL
+
+# Redis Configuration
+redis:
+  host: "localhost" # REDIS_HOST
+  port: 6379 # REDIS_PORT
+  db: 0 # REDIS_DB
+  password: null # REDIS_PASSWORD
+  ssl: false # REDIS_SSL
+  ssl_ca_certs: null # REDIS_SSL_CA_CERTS
+  ssl_certfile: null # REDIS_SSL_CERTFILE
+  ssl_keyfile: null # REDIS_SSL_KEYFILE

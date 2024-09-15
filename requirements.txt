@@ -17,6 +17,10 @@ torch
 transformers
 pydantic
 pydantic_to_pyarrow
+boto3
+google-api-python-client
+azure-cli
+azure-core 
 
 aiohappyeyeballs==2.4.0
 aiohttp==3.10.5

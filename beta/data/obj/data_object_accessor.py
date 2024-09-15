@@ -7,6 +7,7 @@ import pyarrow as pa
 import numpy as np
 import lancedb
 
+
 uri = "data/sample-lancedb"
 db = lancedb.connect(uri)
 table = db.create_table("my_table",
@@ -18,12 +19,12 @@ class DataObjectTable:
     """
     Table for DataObject subclasses who inherit the __tablename__ and __namespace__ class variables.
     """
-
-    def __init__(self, data_object_class: Type[DataObject]):
-        self.data_object_class = data_object_class
+    
+    def __init__(self, data_object: DataObject):
+        self.data_object = data_object_class
         self.namespace = data_object_class.__tablename__
         self.table_name = f"{self.namespace}.{data_object_class.__name__}"
-
+        self.table = pa.table(D)
 
 class DataAccessor:
     """
