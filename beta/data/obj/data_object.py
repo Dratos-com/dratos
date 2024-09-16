@@ -15,7 +15,7 @@ from pydantic_to_pyarrow import get_pyarrow_schema
 import lancedb
 from lancedb.pydantic import LanceModel, Vector
 from lancedb.embeddings import get_registry
-from api.config.dependencies.lance import LanceContext
+from api.config.clients.lancedb import LanceContext
 
 
 class DataObjectError(Exception):
@@ -31,9 +31,9 @@ class DataObject(LanceModel):
     Base class for all data objects in the system.
     Provides common fields and methods for Arrow conversion and data manipulation.
     """
-
+    __catalog__: ClassVar[str] = "dratos"
+    __schema__: ClassVar[str] = "data"
     __tablename__: ClassVar[str] = "objects"
-    __namespace__: ClassVar[str] = "data"
 
     id: str = Field(
         default_factory=lambda: str(ULID()), description="ULID Unique identifier"
@@ -91,22 +91,25 @@ class DataObject(LanceModel):
     
 
 class DataObjectTable:
+
     """
     Table for DataObject subclasses who inherit the __tablename__ and __namespace__ class variables.
     """
     
-    def __init__(self, storage_context: StorageContext):
-        """
-        Initialize the DataObjectTable.
-        """
-        self.dob = dob
-        self.db = db
-        self.location = location
-        self.schema = None
+    def __init__(self, storage_context: StorageContext, data_object_class: Type[DataObject]):
+        self.storage_context = storage_context
+        self.data_object_class = data_object_class
+        self.table_name = f"{data_object_class.__namespace__}/{data_object_class.__tablename__}"
+        self.schema = self.data_object_class.get_arrow_schema()
         self.table = None
 
-        if self.location is None:
-            self.location = f"{dob.__namespace__}/{dob.__tablename__}"
+    async def initialize_table(self):
+        if not self.table_exists():
+            self.table = await self.create_table()
+        else:
+            self.table = self.get_table()
+
+
 
         data_object_schema = pa.schema([
             pa.field("id", pa.string(), nullable=False, primary_key=True),

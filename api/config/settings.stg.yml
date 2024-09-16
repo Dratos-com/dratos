@@ -1,0 +1,109 @@
+# settings.dev.yaml
+
+dev:
+  storage:
+    local:
+      local_path: "~/working_dir/dratos/beta/storage"
+      anonymous: false
+    s3:
+      region_name: ${dev.storage.s3.region_name}
+      endpoint_url: ${dev.storage.s3.endpoint_url}
+      key_id: ${dev.storage.s3.key_id}
+      session_token: ${dev.storage.s3.session_token}
+      access_key: ${dev.storage.s3.access_key}
+      credentials_provider: ${dev.storage.s3.credentials_provider}
+      buffer_time: ${dev.storage.s3.buffer_time}
+      anonymous: false
+
+  clients:
+    ray:
+      address: "auto"
+      local_mode: true
+    lancedb:
+      allow_http: false
+      allow_invalid_certificates: false
+      connect_timeout: "5s"
+      timeout: "30s"
+      user_agent: "everettVT"
+      proxy_url: null
+      proxy_ca_certificate: null
+      proxy_excludes: []
+    daft:
+      execution:
+        scan_tasks_min_size_bytes: 100663296 # 96 MiB
+        scan_tasks_max_size_bytes: 402653184 # 384 MiB
+        broadcast_join_size_bytes_threshold: 10485760 # 10 MiB
+        parquet_split_row_groups_max_files: 10
+        sort_merge_join_sort_with_aligned_boundaries: false
+        hash_join_partition_size_leniency: 0.5
+        sample_size_for_sort: 20
+        num_preview_rows: 8
+        parquet_target_filesize: 536870912 # 512 MB
+        parquet_target_row_group_size: 134217728 # 128 MB
+        parquet_inflation_factor: 3.0
+        csv_target_filesize: 536870912 # 512 MB
+        csv_inflation_factor: 0.5
+        shuffle_aggregation_default_partitions: 200
+        read_sql_partition_size_bytes: 536870912 # 512 MB
+        enable_aqe: false
+        enable_native_executor: false
+        default_morsel_size: 131072
+      runner:
+        set_runner_py: true # Default
+        set_runner_ray: false
+      io: # For Defaults
+        s3:
+          region_name: ${dev.storage.s3.region_name}
+          endpoint_url: ${dev.storage.s3.endpoint_url}
+          key_id: ${dev.storage.s3.key_id}
+          session_token: ${dev.storage.s3.session_token}
+          access_key: ${dev.storage.s3.access_key}
+          credentials_provider: ${dev.storage.s3.credentials_provider}
+          buffer_time: ${dev.storage.s3.buffer_time}
+          max_connections: ${dev.storage.s3.max_connections}
+          retry_initial_backoff_ms: ${dev.storage.s3.retry_initial_backoff_ms}
+          connect_timeout_ms: ${dev.storage.s3.connect_timeout_ms}
+          read_timeout_ms: ${dev.storage.s3.read_timeout_ms}
+          num_tries: ${dev.storage.s3.num_tries}
+          retry_mode: ${dev.storage.s3.retry_mode}
+          use_ssl: ${dev.storage.s3.use_ssl}
+          verify_ssl: ${dev.storage.s3.verify_ssl}
+          check_hostname_ssl: ${dev.storage.s3.check_hostname_ssl}
+          requester_pays: ${dev.storage.s3.requester_pays}
+          force_virtual_addressing: ${dev.storage.s3.force_virtual_addressing}
+          profile_name: ${dev.storage.s3.profile_name}
+        gcs:
+          project_id: ${dev.storage.gcs.project_id}
+          credentials: ${dev.storage.gcs.credentials}
+          token: ${dev.storage.gcs.token}
+          anonymous: false
+        azure:
+          storage_account: ${dev.storage.azure.storage_account_name}
+          access_key: ${dev.storage.azure.access_key}
+          sas_token: ${dev.storage.azure.sas_token}
+          bearer_token: ${dev.storage.azure.bearer_token}
+          tenant_id: ${dev.storage.azure.tenant_id}
+          client_id: ${dev.storage.azure.client_id}
+          client_secret: ${dev.storage.azure.client_secret}
+          use_fabric_endpoint: ${dev.storage.azure.use_fabric_endpoint}
+          anonymous: false
+          endpoint_url: ${dev.storage.azure.endpoint_url}
+          use_ssl: ${dev.storage.azure.use_ssl}
+    unity_catalog:
+      server_url: "http://localhost:8080"
+      server_token: ${dev.storage.unity_catalog.server_token}
+    mlflow:
+      tracking_uri: "http://localhost:5000"
+      registry_uri: !join ["uc:", ${dev.unity_catalog.server_url}]
+    triton:
+      server_url: "http://localhost:8000"
+      model_repository: 
+    vllm:
+      server_url: "http://localhost:11434"
+      timeout: "30s"
+      max_model_len: 2048
+      max_output_len: 2048
+      max_context_window: 2048
+      max_num_batched_tokens: 2048
+      max_num_seqs: 2048
+      max_num_beams: 2048

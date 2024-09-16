@@ -2,101 +2,65 @@ from __future__ import annotations
 
 import typing
 
+
 if typing.TYPE_CHECKING:
     pass
-import os
-from dotenv import load_dotenv
-from typing import Optional
-import httpx
 
+import os
+from typing import Optional
+import lancedb
 import daft
 from daft.io import IOConfig, S3Config, GCSConfig, AzureConfig
+
 import ray
 from openai import AsyncOpenAI, OpenAI
-
-# from unitycatalog import AsyncUnitycatalog, DefaultHttpxClient
 import mlflow
-import yaml
+from dynaconf import Dynaconf
+
+from api.config.resources.storage_config import StorageConfig
+from beta.data.obj.data_object import DataObject
+from api.config.resources.client_factory import ClientFactory
+
+# Example (see settings.foo.yaml for full list of options)
 
 
-class Config:
+class Config(DataObject):
     _instance = None
 
-    def __init__(self, is_async: bool = True):
-        load_dotenv()
-        self.load_config("config.yaml")
-        
-
-
-
-
-    def load_config(self, config_file: str) -> Config:
-        
-
-    def get_services(self):
-        self.get_daft()
-        self.get_lancedb()
-        self.get_mlflow()
-        self.get_ray()
-   
-    def get_storage_context(self):
-        # Override config with environment variables
-        # if AWS_ACCESS_KEY_ID is set, assume we are using S3
-        
-            
-
-
-
-    def get_ray(self) -> ray:
-
-        s3_config = config_dict.get('storage', {}).get('s3', {})
-        s3_config['access_key_id'] = os.getenv('AWS_ACCESS_KEY_ID', s3_config.get('access_key_id'))
-        s3_config['secret_access_key'] = os.getenv('AWS_SECRET_ACCESS_KEY', s3_config.get('secret_access_key'))
-        ray.init(self.RAY_RUNNER_HEAD, runtime_env={"pip": ["getdaft"]})
-        return ray
-
-    def get_daft(self) -> daft:
-        return daft
-
-    def get_mlflow(self) -> mlflow:
-        mlflow.set_tracking_uri(self.MLFLOW_TRACKING_URI)
-        return mlflow
-
-    def get_openai_proxy(
-        self,
-        engine: str = "openai",
-        is_async: Optional[bool] = None,
-    ) -> AsyncOpenAI | OpenAI:
-        if is_async is None:
-            is_async = self.is_async
-        return self.get_client(engine)
-
-    def get_triton(self) -> tritonserver.Server:
-        return tritonserver.Server(
-            model_repository=self.TRITON_MODEL_REPO,
-            model_control_mode=tritonserver.ModelControlMode.EXPLICIT,
-            log_info=False,
+    def __init__(self, settings: Dynaconf):
+        self.settings = Dynaconf(
+            settings_files=[
+                "settings.dev.yaml",
+                "settings.prod.yaml",
+            ],
+            environments=True,  # Enable environment support
+            envvar_prefix="DRATOS",  # Prefix for environment variables
+            load_dotenv=True,  # Load variables from a .env file
         )
 
-    def deploy_autosave_worker(self):
-        script_content = """
-        addEventListener('fetch', event => {
-          event.respondWith(handleRequest(event.request))
-        })
+    def load_config(self) -> Config:
+        self.storage = StorageConfig(self.settings)
 
-        async function handleRequest(request) {
-          if (request.method === 'POST') {
-            const data = await request.json()
-            // Here you would typically encrypt the data with the user's key
-            // For demonstration, we're just echoing it back
-            return new Response(JSON.stringify(data), {
-              headers: { 'Content-Type': 'application/json' }
-            })
-          }
-          return new Response('Send a POST request with JSON data to autosave', { status: 200 })
-        }
-        """
-        return self.deploy_to_cloudflare("autosave-worker", script_content)
+    def get_lancedb(self):
+        lancedb_client = ClientFactory(
+            self.storage, self.settings
+        ).create_lancedb_client()
+        return lancedb_client
+
+    def get_ray(self):
+        return ClientFactory(self.storage, self.settings).get_ray()
+
+    def get_daft(self):
+        return ClientFactory(self.storage, self.settings).get_daft()
+
+    def get_openai_proxy(self):
+        return ClientFactory(self.storage, self.settings).get_openai_proxy()
+
+    def get_mlflow(self):
+        return ClientFactory(self.storage, self.settings).get_mlflow()
+
+    def get_triton(self):
+        return ClientFactory(self.storage, self.settings).get_triton()
 
 
 config = Config.get_instance()
