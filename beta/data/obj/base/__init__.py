@@ -1,3 +1,3 @@
-from .data_object import DataObject, DataObjectAccessor
+from .data_object import DataObject
 
-__all__ = ["DataObject", "DataObjectAccessor"]
+__all__ = ["DataObject"]

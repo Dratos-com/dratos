@@ -4,7 +4,6 @@ import typing
 
 if typing.TYPE_CHECKING:
     pass
-from pydantic import BaseModel
 from typing import Any, Dict
 from beta.data.obj import DataObject
 

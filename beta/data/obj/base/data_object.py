@@ -156,7 +156,7 @@ class DataObject:
         """
         logger.info("Validating 'id' field for valid ULIDs...")
         is_valid_ulid = self.df["id"].apply(
-            lambda x: ULID.is_valid(x), return_type=pa.bool_()
+            lambda x: ULID.from_string(x), return_type=pa.bool_()
         )
         invalid_ids_df = self.df.filter(~is_valid_ulid).select("id")
         invalid_ids = invalid_ids_df.to_pydict().get("id", [])

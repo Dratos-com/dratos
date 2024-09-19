@@ -1,3 +1,3 @@
-from .base.data_object import DataObject, DataObjectAccessor
+from .base.data_object import DataObject
 
-__all__ = ["DataObject", "DataObjectError", "ArrowConversionError"]
+__all__ = ["DataObject"]
