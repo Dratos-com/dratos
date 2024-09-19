@@ -10,14 +10,14 @@ import gzip
 import hashlib
 import mimetypes
 import uuid
-import ulid
+from ulid import ULID 
 from datetime import datetime
 from enum import Enum
 from typing import Optional, Dict, Any
 import os
 import json
 
-from beta.data.obj.base.data_object import DataObject
+from beta.data.obj.base.data_object import DataObject, data_object_schema
 
 artifact_schema = pa.schema(
     [
@@ -86,12 +86,16 @@ class Artifact(DataObject):
     Versatile model for managing artifacts in a data system.
     """
 
-    schema: ClassVar[pa.Schema] = artifact_schema
+    schema: ClassVar[pa.Schema] = data_object_schema.append(artifact_schema)
     obj_type: ClassVar[str] = "Artifact"
 
-    def __init__(self, file_path: str = None):
+    def __init__(self, file_path: str = None, bucket_uri: str = None):
         super().__init__()
         self.file_path = file_path
+        self.bucket_uri = bucket_uri
+
+        self.df = daft.Data
+
         self._populate_from_file()
 
     def _populate_from_file(self):
@@ -99,20 +103,15 @@ class Artifact(DataObject):
         with open(self.file_path, 'rb') as file:
             content = file.read()
 
-        self.id = str(ulid.new())
+        self.id = str(ULID())
         self.name = os.path.basename(self.file_path)
-        self.artifact_uri = f"gs://your-bucket/artifacts/{self.id}/{self.name}"
+        self.artifact_uri = f"{self.bucket_uri}/{self.id}/{self.name}.gzip"
         self.payload = gzip.compress(content)
         self.extension = os.path.splitext(self.file_path)[1][1:]
         self.mime_type = mimetypes.guess_type(self.file_path)[0] or 'application/octet-stream'
         self.version = "1.0"  # You might want to implement versioning logic
         self.size_bytes = len(content)
         self.checksum = hashlib.md5(content).hexdigest()
-        self.is_ai_generated = self.custom_metadata.get('is_ai_generated', False)
-        self.sensitivity_level = self.custom_metadata.get('sensitivity_level', "CONFIDENTIAL")
-        self.context_event_id = self.custom_metadata.get('context_event_id', str(ulid.new()))
-        self.updated_at = datetime.now()
-        self.metadata = json.dumps(self.custom_metadata) if self.custom_metadata else None
 
     @classmethod
     def get_arrow_schema(cls) -> pa.Schema:
@@ -129,11 +128,6 @@ class Artifact(DataObject):
             "version": [self.version],
             "size_bytes": [self.size_bytes],
             "checksum": [self.checksum],
-            "is_ai_generated": [self.is_ai_generated],
-            "sensitivity_level": [self.sensitivity_level],
-            "context_event_id": [self.context_event_id],
-            "updated_at": [self.updated_at],
-            "metadata": [self.metadata]
         }, schema=artifact_schema)
 
     def __repr__(self):
