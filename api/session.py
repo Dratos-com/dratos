@@ -7,6 +7,7 @@ if typing.TYPE_CHECKING:
 from datetime import datetime
 from typing import Dict, Any
 from .base import BaseDBModel
+from pydantic import Field
 
 
 class Session(BaseDBModel):

@@ -14,8 +14,8 @@ from fastapi import FastAPI, HTTPException
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from Beta.beta.models.deployments.whisper import whisper_deployment
-from Beta.beta.models.deployments.vllm import VLLMDeployment
+from beta.models.deployments import whisper_deployment
+from beta.models.deployments import VLLMDeployment
 
 logger = logging.getLogger("ray.serve")
 

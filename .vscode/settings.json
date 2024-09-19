@@ -8,4 +8,5 @@
   "python.linting.flake8Args": ["--config", "pyproject.toml"],
   "editor.formatOnSave": true,
   "python.sortImports.args": ["--profile", "black"]
+  "testExplorer.useNativeTesting": true
 }
