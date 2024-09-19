@@ -1,5 +1,5 @@
 from beta.services.model_manager import ModelManager
-from beta.data.obj.data_object import DataObject
+from beta.data.obj.base.data_object import DataObject
 from typing import List, Dict, Any
 from beta.data.obj.base import DataObjectManager
 

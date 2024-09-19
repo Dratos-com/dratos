@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from .base_engine import BaseEngine
 from beta.models.serve.utils.prompt_utils import prompt, Prompt
 import mlflow
-from beta.data.obj.data_object import DataObject
+from beta.data.obj.base.data_object import DataObject
 
 
 class OpenRouterEngine(BaseEngine):

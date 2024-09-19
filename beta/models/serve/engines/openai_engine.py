@@ -65,7 +65,7 @@ class OpenAIEngineConfig(DataObject):
 class OpenAIEngine(BaseEngine):
     def __init__(
         self,
-        model_name: str = "o1-preview",
+        model_name: str = "openai/o1-preview",
         config: dict = OpenAIEngineConfig(),
     ):
         super().__init__(model_name=self.model_name, config=config)
@@ -115,7 +115,7 @@ class OpenAIEngine(BaseEngine):
     async def generate_data(
         self,
         prompt: Union[str, List[str]],
-        structure: Union[str, Dict, pa.Schema, BaseModel, DataObject],
+        structure: Union[str, Dict, pa.Schema, DataObject],
         grammar: lark.Lark = None,
         logits_processor: Optional[BaseLogitsProcessor] = None,
         **kwargs,

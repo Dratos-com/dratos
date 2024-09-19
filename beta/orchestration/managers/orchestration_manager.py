@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import typing
+
 if typing.TYPE_CHECKING:
     pass
+
+
 class OrchestrationManager(Manager):
     def __init__(self):
         ray.init()

@@ -5,7 +5,7 @@ from pyiceberg.table import Table as PyIcebergTable
 from beta.data.obj.artifacts.artifact import Artifact
 import deltacat
 import pyarrow as pa
-from beta.data.obj.data_object_accessor import DataObjectTable
+from beta.data.obj.base.data_object_accessor import DataObjectTable
 
 
 class ArtifactTable(Lance):

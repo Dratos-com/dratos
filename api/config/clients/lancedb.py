@@ -1,74 +1,79 @@
-import lancedb
 from pydantic import BaseSettings
 from typing import List, Optional
 from dynaconf import Dynaconf
 
-from api.config.resources.storage_config import StorageConfig
-# LanceDB doesn't have config classes for each storage type. So we used defaults from the docs.
+from api.config.context.storage_context import StorageContext
+
+# NOTE: LanceDB doesn't have config classes for each storage type. So we used defaults from the docs.
 # https://lancedb.github.io/lancedb/guides/storage/
 
+# fmt: off
 
-class LanceDBBaseConfig(BaseSettings):
-    allow_http: bool = False
-    allow_invalid_certificates: bool = False
-    connect_timeout: str = "5s"
-    timeout: str = "30s"
-    user_agent: str = "lancedb-python/0.1.0"
-    proxy_url: str = None
-    proxy_ca_certificate: str = None
-    proxy_excludes: List[str] = []
+class LanceDBBaseConfig:
+    allow_http: bool = False                                      # Allow non-TLS (HTTP) connections
+    allow_invalid_certificates: bool = False                      # Skip certificate validation on HTTPS connections
+    connect_timeout: str = "5s"                                   # Timeout for the connect phase
+    timeout: str = "30s"                                          # Timeout for the entire request
+    user_agent: str = "lancedb-python/0.1.0"                      # User agent string
+    proxy_url: Optional[str] = None                               # URL of the proxy server
+    proxy_ca_certificate: Optional[str] = None                    # PEM-formatted CA certificate for proxy
+    proxy_excludes: List[str] = []                                # Hosts that bypass the proxy
 
 
 class LanceDBLocalConfig(LanceDBBaseConfig):
-    local_path: str = None
-    anonymous: bool = False
+    local_path: Optional[str] = "~/lancedb/data"                  # Path for local storage
+    anonymous: bool = False                                       # Enable anonymous access
 
 
 class LanceDBS3Config(LanceDBBaseConfig):
-    aws_endpoint: str = None  # The S3 endpoint to connect to.
-    aws_access_key_id: str = None  # The AWS access key ID.
-    aws_secret_access_key: str = None  # The AWS secret access key.
-    aws_session_token: str = None  # The AWS session token.
-    aws_virtual_hosted_style: bool = False  # Whether to use virtual hosted style URLs.
-    aws_s3_express: bool = False  # Whether to use S3 Express.
-    aws_server_side_encryption: bool = False  # Whether to use server-side encryption.
-    aws_sse_kms_key_id: str = None  # The KMS key ID to use for server-side encryption.
-    aws_sse_bucket_key_enabled: bool = False  # Whether to use bucket key encryption.
-    aws_region: str = None  # The AWS region to connect to.
+    aws_endpoint: Optional[str] = None                            # S3 endpoint URL
+    aws_access_key_id: Optional[str] = None                       # AWS Access Key ID
+    aws_secret_access_key: Optional[str] = None                   # AWS Secret Access Key
+    aws_session_token: Optional[str] = None                       # AWS Session Token
+    aws_virtual_hosted_style: bool = False                        # Use virtual hosted-style URLs
+    aws_s3_express: bool = False                                  # Use S3 Express One Zone endpoints
+    aws_server_side_encryption: Optional[str] = None              # Server-side encryption algorithm
+    aws_sse_kms_key_id: Optional[str] = None                      # KMS key ID for encryption
+    aws_sse_bucket_key_enabled: bool = False                      # Enable bucket key encryption
+    aws_region: Optional[str] = "us-west-2"                       # AWS region
 
 
 class LanceDBGCSConfig(LanceDBBaseConfig):
-    google_service_account: str = None
-    google_service_account_key: str = None
-    google_application_credentials: str = None
+    google_service_account: Optional[str] = None                   # Path to GCS service account JSON
+    google_service_account_key: Optional[str] = None               # GCS service account key
+    google_application_credentials: Optional[str] = None           # Path to application credentials
 
 
 class LanceDBAzureConfig(LanceDBBaseConfig):
-    azure_storage_account_name: str = None
-    azure_storage_account_key: str = None
-    azure_client_id: str = None
-    azure_client_secret: str = None
-    azure_tenant_id: str = None
-    azure_storage_sas_key: str = None
-    azure_storage_token: str = None
-    azure_storage_use_emulator: bool = False
-    azure_endpoint: str = None
-    azure_use_fabric_endpoint: bool = False
-    azure_msi_endpoint: str = None
-    azure_object_id: str = None
-    azure_msi_resource_id: str = None
-    azure_federated_token_file: str = None
-    azure_use_azure_cli: bool = False
-    azure_disable_tagging: bool = False
+    azure_storage_account_name: Optional[str] = None               # Azure Storage Account Name
+    azure_storage_account_key: Optional[str] = None                # Azure Storage Account Key
+    azure_client_id: Optional[str] = None                          # Azure Client ID
+    azure_client_secret: Optional[str] = None                      # Azure Client Secret
+    azure_tenant_id: Optional[str] = None                          # Azure Tenant ID
+    azure_storage_sas_key: Optional[str] = None                    # Azure SAS Token
+    azure_storage_token: Optional[str] = None                      # Azure Storage Token
+    azure_storage_use_emulator: bool = False                       # Use Azure Storage Emulator
+    azure_endpoint: Optional[str] = None                           # Azure endpoint URL
+    azure_use_fabric_endpoint: bool = False                        # Use Fabric endpoint
+    azure_msi_endpoint: Optional[str] = None                       # MSI endpoint
+    azure_object_id: Optional[str] = None                          # Object ID for MSI
+    azure_msi_resource_id: Optional[str] = None                    # MSI Resource ID
+    azure_federated_token_file: Optional[str] = None               # Federated Token File
+    azure_use_azure_cli: bool = False                              # Use Azure CLI for authentication
+    azure_disable_tagging: bool = False                            # Disable tagging.
 
 
 class LanceDBConfig:
-    storage_options: dict = {}
+    storage_options: dict = {}                                     # Storage options dictionary
 
-    def __init__(self, sc: StorageConfig, settings: Dynaconf):
+    def __init__(self, sc: StorageContext, settings: Dynaconf):
+
+        lancedb_settings = settings.get('lancedb', {})
+        
+        # Initialize Local Storage Configuration
         if sc.local:
             self.local = LanceDBLocalConfig(
-                allow_http=settings.lance.local.allow_http,
+                allow_http=lancedb_settings.get('allow_http'),
                 allow_invalid_certificates=settings.lance.local.allow_invalid_certificates,
                 connect_timeout=settings.lance.local.connect_timeout,
                 timeout=settings.lance.local.timeout,
@@ -80,6 +85,7 @@ class LanceDBConfig:
                 anonymous=sc.local.anonymous,
             )
 
+        # Initialize S3 Storage Configuration
         if sc.s3:
             self.s3 = LanceDBS3Config(
                 allow_http=settings.lance.s3.allow_http,
@@ -102,6 +108,7 @@ class LanceDBConfig:
                 aws_region=sc.s3.aws_region,
             )
 
+        # Initialize GCS Storage Configuration
         if sc.gcs:
             self.gcs = LanceDBGCSConfig(
                 allow_http=settings.lance.gcs.allow_http,
@@ -114,8 +121,10 @@ class LanceDBConfig:
                 proxy_excludes=settings.lance.gcs.proxy_excludes,
                 google_service_account=sc.gcs.google_service_account,
                 google_service_account_key=sc.gcs.google_service_account_key,
+                google_application_credentials=sc.gcs.google_application_credentials,
             )
 
+        # Initialize Azure Storage Configuration
         if sc.azure:
             self.azure = LanceDBAzureConfig(
                 allow_http=settings.lance.azure.allow_http,
@@ -137,4 +146,11 @@ class LanceDBConfig:
                 azure_endpoint=sc.azure.azure_endpoint,
                 azure_use_fabric_endpoint=sc.azure.azure_use_fabric_endpoint,
                 azure_msi_endpoint=sc.azure.azure_msi_endpoint,
+                azure_object_id=sc.azure.azure_object_id,
+                azure_msi_resource_id=sc.azure.azure_msi_resource_id,
+                azure_federated_token_file=sc.azure.azure_federated_token_file,
+                azure_use_azure_cli=sc.azure.azure_use_azure_cli,
+                azure_disable_tagging=sc.azure.azure_disable_tagging,
             )
+
+# fmt: on

@@ -1,0 +1,65 @@
+dev:
+  config:
+    context:
+      storage:
+        gcs:
+          project_id: null
+          credentials: null
+          token: null
+          anonymous: false
+          google_service_account: null
+          google_service_account_key: null
+    clients:
+      ray:
+        address: "auto"
+        local_mode: false
+      lancedb:
+        allow_http: false
+        allow_invalid_certificates: false
+        connect_timeout: "10s"
+        timeout: "30s"
+        user_agent: "DratosAI"
+      daft:
+        execution:
+          scan_tasks_min_size_bytes: 100663296 # 96 MiB
+          scan_tasks_max_size_bytes: 402653184 # 384 MiB
+          broadcast_join_size_bytes_threshold: 10485760 # 10 MiB
+          parquet_split_row_groups_max_files: 10
+          sort_merge_join_sort_with_aligned_boundaries: false
+          hash_join_partition_size_leniency: 0.5
+          sample_size_for_sort: 20
+          num_preview_rows: 8
+          parquet_target_filesize: 536870912 # 512 MB
+          parquet_target_row_group_size: 134217728 # 128 MB
+          parquet_inflation_factor: 3.0
+          csv_target_filesize: 536870912 # 512 MB
+          csv_inflation_factor: 0.5
+          shuffle_aggregation_default_partitions: 200
+          read_sql_partition_size_bytes: 536870912 # 512 MB
+          enable_aqe: false
+          enable_native_executor: false
+          default_morsel_size: 131072
+        runner:
+          set_runner_py: false # Default
+          set_runner_ray: true
+        io:
+          gcs:
+            project_id: ${dev.config.context.storage.gcs.project_id}
+            credentials: ${dev.config.context.storage.gcs.credentials}
+            token: ${dev.config.context.storage.gcs.token}
+            anonymous: false
+      unity_catalog:
+        server_url: "http://localhost:8080"
+        server_token: ${dev.storage.unity_catalog.server_token}
+      mlflow:
+        tracking_uri: "http://localhost:5000"
+        registry_uri: "sqlite:///mlflow.db"
+        experiment_name: "default"
+        run_name: "default_run"
+        username: "mlflow_user"
+        password: "mlflow_password"
+        db_username: "db_user"
+        db_password: "db_password"
+        db_host: "localhost"
+        db_port: 5432
+        db_name: "mlflow_db"

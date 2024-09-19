@@ -1,4 +1,4 @@
-from .data import obj
-from .models import serve
+from .data.obj import DataObject
 
-__all__ = ["obj", "serve"]
+
+__all__ = ["DataObject"]

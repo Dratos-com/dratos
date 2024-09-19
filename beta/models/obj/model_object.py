@@ -10,8 +10,8 @@ from outlines.models import BaseModel as OutlinesBaseModel
 from dataclasses import dataclass
 import daft
 import typing
-from beta.data.obj.data_object import DataObject
-from beta.data.obj.data_object_accessor import DataObjectAccessor
+from beta.data.obj.base.data_object import DataObject
+from beta.data.obj.base.data_object_accessor import DataObjectAccessor
 from beta.data.obj.base. import DataObjectManager    
 import torch
 import numpy as np

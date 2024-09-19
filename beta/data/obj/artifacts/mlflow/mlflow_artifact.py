@@ -1,68 +1,101 @@
 from typing import List, Optional, Dict, Any
-from beta.data.obj.artifacts.artifact import Artifact
+from beta.data.obj.artifacts import Artifact
 import mlflow
-import pyarrow as pa
+from mlflow.tracking import MlflowClient
+from api.config.context.clients.mlflow import MlflowConfig
 
 
-class MlflowArtifactAccessor:
-    """
-    Accessor for Artifact objects stored in MLflow.
-    Provides methods for CRUD operations and data manipulation specific to MLflow Artifacts.
-    """
+class MlflowArtifactBridge:
+    def __init__(self, mlflow_config: MlflowConfig):
+        self.mlflow_config = mlflow_config
+        self.client = MlflowClient(**mlflow_config.get_mlflow_client_kwargs())
 
-    def __init__(self, experiment_id: str, tracking_uri: str = None):
-        self.experiment_id = experiment_id
-        self.tracking_uri = tracking_uri
-        if self.tracking_uri is not None:
-            mlflow.set_tracking_uri(self.tracking_uri)
+    def log_artifact(
+        self,
+        artifact: Artifact,
+        run_id: Optional[str] = None,
+        experiment_name: Optional[str] = None,
+    ):
+        """
+        Log an artifact to MLflow.
+        """
+        if run_id is None:
+            if experiment_name is None:
+                experiment_name = f"{self.mlflow_config.experiment_name_prefix}default"
+            experiment = self.get_or_create_experiment(experiment_name)
+            run = self.client.create_run(experiment.experiment_id)
+            run_id = run.info.run_id
 
-    def get_artifacts(
-        self, filter_expr: Optional[Dict[str, Any]] = None
-    ) -> List[Artifact]:
-        """Retrieve artifacts from MLflow, optionally filtered by a dictionary."""
+        with mlflow.start_run(run_id=run_id):
+            mlflow.log_dict(artifact.dict(), f"{artifact.id}_metadata.json")
+            if artifact.payload:
+                mlflow.log_artifact(
+                    artifact.payload, f"{artifact.id}.{artifact.extension}"
+                )
+
+            # Log additional metadata
+            mlflow.set_tag("artifact_id", artifact.id)
+            mlflow.set_tag("artifact_name", artifact.name)
+            mlflow.set_tag("artifact_type", artifact.mime_type)
+            mlflow.set_tag("is_ai_generated", str(artifact.is_ai_generated))
+
+        return run_id
+
+    def get_or_create_experiment(
+        self, experiment_name: str
+    ) -> mlflow.entities.Experiment:
+        """
+        Get an existing experiment or create a new one if it doesn't exist.
+        """
+        experiment = self.client.get_experiment_by_name(experiment_name)
+        if experiment is None:
+            experiment_id = self.client.create_experiment(
+                experiment_name,
+                artifact_location=self.mlflow_config.default_artifact_root,
+            )
+            experiment = self.client.get_experiment(experiment_id)
+        return experiment
+
+    def get_artifact(self, run_id: str, artifact_id: str) -> Optional[Artifact]:
+        """
+        Retrieve an artifact from MLflow.
+        """
+        run = self.client.get_run(run_id)
+        artifact_uri = self.mlflow_config.get_artifact_uri(
+            run_id, f"{artifact_id}_metadata.json"
+        )
+
+        try:
+            artifact_dict = mlflow.artifacts.load_dict(artifact_uri)
+            artifact = Artifact(**artifact_dict)
+
+            # Load payload if it exists
+            payload_uri = self.mlflow_config.get_artifact_uri(
+                run_id, f"{artifact_id}.{artifact.extension}"
+            )
+            artifact.payload = mlflow.artifacts.load_artifact(payload_uri)
+
+            return artifact
+        except Exception as e:
+            print(f"Error retrieving artifact: {e}")
+            return None
+
+    def list_artifacts(self, run_id: str) -> List[Artifact]:
+        """
+        List all artifacts for a given run.
+        """
         artifacts = []
-        for run in mlflow.search_runs(
-            experiment_ids=[self.experiment_id], filter_string=filter_expr
-        ):
-            for artifact_path in mlflow.list_artifacts(run.info.run_id):
-                if artifact_path.path.endswith(".arrow"):
-                    artifact_uri = mlflow.get_artifact_uri(
-                        run.info.run_id, artifact_path.path
-                    )
-                    arrow_table = pa.ipc.open_file(artifact_uri).read_all()
-                    artifacts.extend(Artifact.from_arrow_table(arrow_table))
+        for file_info in self.client.list_artifacts(run_id):
+            if file_info.path.endswith("_metadata.json"):
+                artifact_id = file_info.path.replace("_metadata.json", "")
+                artifact = self.get_artifact(run_id, artifact_id)
+                if artifact:
+                    artifacts.append(artifact)
         return artifacts
 
-    def get_artifact_by_id(self, artifact_id: str) -> Artifact:
-        """Retrieve a single artifact by its ID."""
-        artifacts = self.get_artifacts(filter_expr={"tags.artifact_id": artifact_id})
-        if artifacts:
-            return artifacts[0]
-        else:
-            raise ValueError(f"Artifact with ID {artifact_id} not found.")
-
-    def write_artifacts(self, artifacts: List[Artifact], run_name: str):
-        """Write a list of artifacts to MLflow."""
-        with mlflow.start_run(run_name=run_name, experiment_id=self.experiment_id):
-            arrow_table = Artifact.to_arrow_table(artifacts)
-            mlflow.log_artifact(
-                arrow_table.to_feather("artifacts.arrow"), "artifacts.arrow"
-            )
-            mlflow.set_tag("artifact_id", artifacts[0].id)
-
-    def update_artifact(self, artifact: Artifact, run_id: str):
-        """Update a single artifact in MLflow."""
-        with mlflow.start_run(run_id=run_id, experiment_id=self.experiment_id):
-            arrow_table = Artifact.to_arrow_table([artifact])
-            mlflow.log_artifact(
-                arrow_table.to_feather("artifacts.arrow"), "artifacts.arrow"
-            )
-            mlflow.set_tag("artifact_id", artifact.id)
-
-    def delete_artifact(self, artifact_id: str, run_id: str):
-        """Delete a single artifact from MLflow."""
-        mlflow.delete_artifact(run_id, "artifacts.arrow")
-
-    def upsert_artifacts(self, artifacts: List[Artifact], run_name: str):
-        """Upsert a list of artifacts to MLflow."""
-        self.write_artifacts(artifacts, run_name)
+    def delete_artifact(self, run_id: str, artifact_id: str):
+        """
+        Delete an artifact from MLflow.
+        """
+        self.client.delete_artifact(run_id, f"{artifact_id}_metadata.json")
+        self.client.delete_artifact(run_id, f"{artifact_id}.{artifact.extension}")

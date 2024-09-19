@@ -18,14 +18,16 @@ class VLLMEngine(OpenAIEngine):
         model_name: str,
         mlflow_client: mlflow.tracking.MlflowClient,
         config: VLLMEngineConfig = VLLMEngineConfig(),
+        api_key: Optional[str] = None,
+        base_url: Optional[str] = None,
     ):
         super().__init__(model_name, mlflow_client, config)
+        self.api_key = api_key
+        self.base_url = base_url
         self.client: Optional[AsyncOpenAI | OpenAI] = None
 
     async def initialize(self) -> None:
-        api_key = os.getenv("VLLM_API_KEY")
-        base_url = os.getenv("VLLM_BASE_URL")
-        self.client = AsyncOpenAI(api_key=api_key, base_url=base_url)
+        self.client = AsyncOpenAI(api_key=self.api_key, base_url=self.base_url)
         mlflow.openai.autolog()
 
 
