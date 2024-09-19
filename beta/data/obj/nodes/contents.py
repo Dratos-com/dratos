@@ -1,7 +1,7 @@
 from enum import Enum
 
 from typing import Optional, Any, List, Dict
-from beta.data.obj.data_object import DataObject
+from beta.data.obj.base.data_object import DataObject
 import daft
 
 

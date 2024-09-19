@@ -1,6 +1,5 @@
 from beta.tools.tool import Tool
 from beta.integrations.emotiv import EmotivIntegration
-from beta.config.config import config
 
 
 class EmotivTool(Tool):

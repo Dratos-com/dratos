@@ -10,6 +10,14 @@ import json
 import pyarrow as pa
 from beta.data.obj import DataObject
 import tiktoken
+from outlines.processors import (
+    BaseLogitsProcessor,
+    JSONLogitsProcessor,
+    RegexLogitsProcessor,
+)
+from outlines.fsm.json_schema import build_regex_from_schema
+import lark
+
 
 class OpenAIEngineConfig(DataObject):
     """Configuration for OpenAI Engine."""
@@ -50,29 +58,24 @@ class OpenAIEngineConfig(DataObject):
         description="How many chat completion choices to generate for each input message.",
     )
 
-from outlines.processors import (
-            BaseLogitsProcessor,
-            JSONLogitsProcessor,
-            RegexLogitsProcessor,
-        )
-from outlines.fsm.json_schema import build_regex_from_schema
+    def __call__(self):
+        return self.model_dump()
+
 
 class OpenAIEngine(BaseEngine):
     def __init__(
         self,
-        model_name: str = "o1-preview",
-        mlflow_client: mlflow.tracking.MlflowClient,
-        config: OpenAIEngineConfig = OpenAIEngineConfig(),
+        model_name: str = "openai/o1-preview",
+        config: dict = OpenAIEngineConfig(),
     ):
-        super().__init__(model_name, mlflow_client, config=config)
+        super().__init__(model_name=self.model_name, config=config)
         self.client: Optional[Union[OpenAI | AsyncOpenAI]] = None
         self.config = config
         self.logits_processor: Optional[BaseLogitsProcessor] = None
 
     async def initialize(self) -> None:
         self.client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        mlflow.openai.autolog()
-    
+
     async def shutdown(self) -> None:
         if self.client:
             await self.client.close()
@@ -80,46 +83,40 @@ class OpenAIEngine(BaseEngine):
     async def get_model_info(self):
         model = self.client.models.retrieve(self.model_name)
         return model
-    
+
     async def get_supported_models(self):
         if not self.client:
             await self.initialize()
         models = await self.client.models.list()
         return [model.id for model in models.data]
 
-    async def generate(self,
+    async def generate(
+        self,
         prompt: str,
-        messages: List[Dict[str, str]], 
+        messages: List[Dict[str, str]],
         response_format: BaseModel = None,
         **kwargs,
-        ):
-        
+    ):
         if not self.client:
             await self.initialize()
 
         # Add the user prompt to the messages
         messages.append({"role": "user", "content": prompt})
-
-        with self.mlflow_client.start_run(run_name=f"OpenAI_{self.model_name}_generation"):
-            response = await self.client.chat.completions.create(
-                    model=self.model_name,
-                    messages=messages,
-                    response_format=response_format,
-                    **kwargs
-                )
+        response = await self.client.chat.completions.create(
+            model=self.model_name,
+            messages=messages,
+            response_format=response_format,
+            **kwargs,
+        )
         result = response.choices[0].message.content
-        self.log_metrics({"total_tokens": response.usage.total_tokens})
-        self.log_metrics({"prompt_tokens": response.usage.prompt_tokens})
-        self.log_metrics({"completion_tokens": response.usage.completion_tokens})
-        self.log_metrics({"prompt_per_token_cost": response.usage.prompt_tokens * 0.00001})
-        self.log_metrics({"completion_per_token_cost": response.usage.completion_tokens * 0.00003})
-    
-        return result 
 
-    async def generate_structured(
+        return result
+
+    async def generate_data(
         self,
         prompt: Union[str, List[str]],
-        structure: Union[str, Dict, pa.Schema, BaseModel],
+        structure: Union[str, Dict, pa.Schema, DataObject],
+        grammar: lark.Lark = None,
         logits_processor: Optional[BaseLogitsProcessor] = None,
         **kwargs,
     ):
@@ -130,13 +127,13 @@ class OpenAIEngine(BaseEngine):
         result = await self.generate(prompt, **kwargs)
 
         return result
-    
-    async def get_logits_processor(self, structure: Union[str, dict, pa.Schema, BaseModel]):
+
+    async def get_logits_processor(
+        self, structure: Union[str, dict, pa.Schema, BaseModel]
+    ):
         """Get the logits processor for the given structure."""
         if isinstance(structure, str):
-            self.set_logits_processor(
-                RegexLogitsProcessor(structure)
-            )
+            self.set_logits_processor(RegexLogitsProcessor(structure))
         elif isinstance(structure, dict):
             regex_str = build_regex_from_schema(structure)
             self.set_logits_processor(
@@ -157,9 +154,8 @@ class OpenAIEngine(BaseEngine):
 
         else:
             raise ValueError("Unsupported structure type")
-        
-        return self.logits_processor
 
+        return self.logits_processor
 
     @property
     def supported_tasks(self) -> List[str]:
@@ -172,9 +168,10 @@ class OpenAIEngine(BaseEngine):
             **self.config.dict(),
         }
 
-
-
-    #async def log_artifacts(self, artifacts: List[Artifact]) -> None:
-    #    for artifact in artifacts:
-    #        self.mlflow_client.log_artifact(run_id=self.mlflow_client.active_run().info.run_id, local_path=artifact.path)
-
+    async def log_artifacts(self, artifacts: List[Artifact]) -> None:
+        for artifact in artifacts:
+            if self.mlflow_client:
+                self.mlflow_client.log_artifact(
+                    run_id=self.mlflow_client.active_run().info.run_id,
+                    local_path=artifact.path,
+                )

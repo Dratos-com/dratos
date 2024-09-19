@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import typing
+
 if typing.TYPE_CHECKING:
     pass
 from typing import List, Optional
 from .. import DataObject, Document as doc, Graph as kg
 
 
-class KnowledgeBase(DataObject):
+class KnowledgeBase(Tool):
     artifacts = {}
     documents: Optional[List[document]]
     graphs = graph()

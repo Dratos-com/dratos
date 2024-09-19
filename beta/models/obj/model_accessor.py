@@ -3,7 +3,7 @@ import numpy as np
 import pyarrow as pa
 import lance
 from lance import LanceDataset
-from beta.data.obj.data_object import DataObject
+from beta.data.obj.base.data_object import DataObject
 import mlflow
 import logging
 

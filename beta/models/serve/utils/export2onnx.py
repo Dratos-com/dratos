@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import typing
+
 if typing.TYPE_CHECKING:
     pass
 import torch
@@ -92,9 +93,11 @@ def export_model_to_onnx(
     else:
         torch.onnx.export(
             model,
-            (inputs.input_ids, inputs.attention_mask)
-            if task == "text-classification"
-            else inputs.input_features,
+            (
+                (inputs.input_ids, inputs.attention_mask)
+                if task == "text-classification"
+                else inputs.input_features
+            ),
             onnx_path,
             input_names=input_names,
             output_names=output_names,

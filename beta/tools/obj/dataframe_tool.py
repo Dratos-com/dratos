@@ -8,7 +8,7 @@ if typing.TYPE_CHECKING:
 
 import daft
 import ray
-from beta.tools import BaseTool
+from beta.tools.obj import BaseTool
 from beta.config import config
 
 

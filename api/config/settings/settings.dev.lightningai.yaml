@@ -1,0 +1,115 @@
+dev:
+  config:
+    context:
+      storage:
+        s3:
+          region_name: us-west-2
+          endpoint_url: null
+          access_key_id: null
+          secret_access_key: null
+          session_token: null
+          anonymous: false
+          expiry: null
+          buffer_time: 900 # 15 minutes
+          max_connections: 100
+          retry_initial_backoff_ms: 100
+          connect_timeout_ms: 5000 # 5 seconds
+          read_timeout_ms: 30000 # 30 seconds
+          num_tries: 3
+          retry_mode: "standard"
+          use_ssl: true
+          verify_ssl: true
+          check_hostname_ssl: true
+          requester_pays: false
+          force_virtual_addressing: false
+          profile_name: null
+          virtual_hosted_style: false
+          s3_express: false
+          server_side_encryption: null
+          sse_kms_key_id: null
+          sse_bucket_key_enabled: false
+    clients:
+      ray:
+        address: "auto"
+        local_mode: false
+      lancedb:
+        allow_http: false
+        allow_invalid_certificates: false
+        connect_timeout: "5s"
+        timeout: "30s"
+        user_agent: "everettVT"
+        proxy_url: null
+        proxy_ca_certificate: null
+        proxy_excludes: []
+      daft:
+        execution:
+          scan_tasks_min_size_bytes: 100663296 # 96 MiB
+          scan_tasks_max_size_bytes: 402653184 # 384 MiB
+          broadcast_join_size_bytes_threshold: 10485760 # 10 MiB
+          parquet_split_row_groups_max_files: 10
+          sort_merge_join_sort_with_aligned_boundaries: false
+          hash_join_partition_size_leniency: 0.5
+          sample_size_for_sort: 20
+          num_preview_rows: 8
+          parquet_target_filesize: 536870912 # 512 MB
+          parquet_target_row_group_size: 134217728 # 128 MB
+          parquet_inflation_factor: 3.0
+          csv_target_filesize: 536870912 # 512 MB
+          csv_inflation_factor: 0.5
+          shuffle_aggregation_default_partitions: 200
+          read_sql_partition_size_bytes: 536870912 # 512 MB
+          enable_aqe: false
+          enable_native_executor: false
+          default_morsel_size: 131072
+        runner:
+          set_runner_py: true # Default
+          set_runner_ray: false
+        io:
+          s3:
+            region_name: ${dev.config.context.storage.s3.region_name}
+            endpoint_url: ${dev.config.context.storage.s3.endpoint_url}
+            key_id: ${dev.config.context.storage.s3.key_id}
+            session_token: ${dev.config.context.storage.s3.session_token}
+            access_key: ${dev.config.context.storage.s3.access_key}
+            credentials_provider: ${dev.config.context.storage.s3.credentials_provider}
+            buffer_time: ${dev.config.context.storage.s3.buffer_time}
+            max_connections: ${dev.config.context.storage.s3.max_connections}
+            retry_initial_backoff_ms: ${dev.config.context.storage.s3.retry_initial_backoff_ms}
+            connect_timeout_ms: ${dev.config.context.storage.s3.connect_timeout_ms}
+            read_timeout_ms: ${dev.config.context.storage.s3.read_timeout_ms}
+            num_tries: ${dev.config.context.storage.s3.num_tries}
+            retry_mode: ${dev.config.context.storage.s3.retry_mode}
+            use_ssl: ${dev.config.context.storage.s3.use_ssl}
+            verify_ssl: ${dev.config.context.storage.s3.verify_ssl}
+            check_hostname_ssl: ${dev.config.context.storage.s3.check_hostname_ssl}
+            requester_pays: ${dev.config.context.storage.s3.requester_pays}
+            force_virtual_addressing: ${dev.config.context.storage.s3.force_virtual_addressing}
+            profile_name: ${dev.config.context.storage.s3.profile_name}
+      unity_catalog:
+        server_url: "http://localhost:8080"
+        server_token: ${dev.storage.unity_catalog.server_token}
+      mlflow:
+        tracking_uri: "http://localhost:5000"
+        registry_uri: "sqlite:///mlflow.db"
+        experiment_name: "default"
+        run_name: "default_run"
+        username: "mlflow_user"
+        password: "mlflow_password"
+        db_username: "db_user"
+        db_password: "db_password"
+        db_host: "localhost"
+        db_port: 5432
+        db_name: "mlflow_db"
+
+      triton:
+        server_url: "http://localhost:8000"
+        model_repository:
+      vllm:
+        server_url: "http://localhost:11434"
+        timeout: "30s"
+        max_model_len: 2048
+        max_output_len: 2048
+        max_context_window: 2048
+        max_num_batched_tokens: 2048
+        max_num_seqs: 2048
+        max_num_beams: 2048

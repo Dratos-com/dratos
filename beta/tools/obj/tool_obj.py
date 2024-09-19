@@ -12,6 +12,9 @@ from beta.data.obj import DataObject
 class Tool(DataObject):
     name: str
 
+    __schema__ = "obj"
+    __tablename__ = "functions"
+
     def __call__(self, data: DataObject):
         return self._udf(data)
 
