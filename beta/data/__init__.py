@@ -1,3 +1,3 @@
-from .obj import DataObject
+from .obj import DataObject, Artifact
 
-__all__ = ["DataObject"]
+__all__ = ["DataObject", "Artifact"]

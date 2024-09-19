@@ -31,8 +31,17 @@
             "sourceMapPathOverrides": {
                 "webpack:///./src/*": "${webRoot}/src/*"
             },
-            "runtimeArgs": ["--disable-web-security"],
+            "runtimeArgs": [
+                "--disable-web-security"
+            ],
             "userDataDir": "${workspaceFolder}/.vscode/chrome",
+        },
+        {
+            "type": "jupyter",
+            "request": "launch",
+            "name": "Debug Jupyter Notebook",
+            "program": "${file}",
+            "console": "integratedTerminal"
         }
     ]
 }

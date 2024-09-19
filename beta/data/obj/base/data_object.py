@@ -9,8 +9,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-data_object_schema = pa.schema(
-    [
+data_object_schema = [
         pa.field(
             "id",
             pa.string(),
@@ -44,7 +43,7 @@ data_object_schema = pa.schema(
             },
         ),
     ]
-)
+
 
 
 class DataObject:

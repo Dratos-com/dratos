@@ -1,4 +1,4 @@
-from .data.obj import DataObject
+from .data import DataObject, Artifact
 
 
-__all__ = ["DataObject"]
+__all__ = ["DataObject", "Artifact"]
