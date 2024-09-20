@@ -116,7 +116,7 @@ class Agent:
         self.embedding = embedding
         self.stt = stt
         self.tools = tools or []
-        self.metadata = metadata or Metadata(schema=SchemaWrapper(schema=Schema({})))  # Default empty schema if not provided
+        self.metadata = metadata
         self.engine = engine
         self.is_async = is_async
         self.status = AgentStatus.INIT
@@ -141,6 +141,8 @@ class Agent:
         logging.info("Sending request to model")
         if isinstance(prompt, Prompt):
             prompt = prompt.content
+
+        logging.info(f"Prompt: {prompt}")
         
         if messages is None:
             messages = [{"role": "system", "content": "You are a helpful assistant"}, {"role": "user", "content": prompt}]
