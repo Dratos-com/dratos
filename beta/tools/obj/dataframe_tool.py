@@ -8,12 +8,9 @@ if typing.TYPE_CHECKING:
 
 import daft
 import ray
-from beta.tools.obj import BaseTool
-from beta.config import config
-
 
 @ray.remote
-class DataFrameTool(BaseTool):
+class DataFrameTool():
     """
     DataFrameTool provides a comprehensive API for working with Daft DataFrames.
 
@@ -193,7 +190,3 @@ class DataFrameTool(BaseTool):
 
     def column_names(self, df: daft.DataFrame) -> List[str]:
         return df.column_names
-
-
-# Register the tool
-config.register_tool(DataFrameTool())

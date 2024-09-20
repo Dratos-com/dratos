@@ -1,26 +1,31 @@
 from __future__ import annotations
 
-from typing import Optional, Dict, Any, ClassVar, Type, TypeVar, List, Union
+import io
+from typing import Optional, Dict, Any, ClassVar, TypeVar, Iterator
 import pyarrow as pa
-from datetime import datetime
-import ulid
-import json
 from pydantic import Field
-from outlines.models import BaseModel as OutlinesBaseModel
+from outlines.models.vllm import VLLM
 from dataclasses import dataclass
 import daft
-import typing
-from beta.data.obj.base.data_object import DataObject
-from beta.data.obj.base.data_object_accessor import DataObjectAccessor
-from beta.data.obj.base. import DataObjectManager    
+from beta.data.obj.base.data_object import DataObject  
 import torch
 import numpy as np
 
 T = TypeVar("T", bound="DataObject")
 
-@daft.udf(input_type=daft.DataType.from_arrow_type(pa.struct({"x": pa.float64()})), output_type=daft.DataType.from_arrow_type(pa.float64()))
+@daft.udf(return_dtype=daft.DataType.from_arrow_type(pa.string()))
 def predict(x: float) -> float:
-    return x * 2
+    # Initialize VLLM model
+    model = VLLM(model="meta-llama/Llama-2-7b-chat-hf")
+    
+    # Convert input to string if it's not already
+    input_text = str(x)
+    
+    # Generate prediction using VLLM
+    response = model.generate(input_text, max_tokens=100)
+    
+    # Return the generated text
+    return response[0].text
 
 class ModelObject(DataObject):
     __tablename__: ClassVar[str] = "models"
@@ -41,12 +46,28 @@ class ModelObject(DataObject):
     def save(self, namespace: str, table_name: str) -> None:
         self.manager.save_data_objects([self], namespace, table_name)
     
-    @daft.udf(io)
+    @daft.udf(return_dtype=daft.DataType.from_arrow_type(pa.float64()))
     def predict(self, data: daft.DataFrame) -> daft.DataFrame:
-        
+        # Load the model weights if they're not None
+        if self.model_weights is not None:
+            # Deserialize the model weights
+            model = torch.load(io.BytesIO(self.model_weights), map_location=get_device())
+            model.eval()  # Set the model to evaluation mode
+        else:
+            raise ValueError("Model weights are not available")
+
+        # Convert Daft DataFrame to PyTorch tensor
+        input_tensor = torch.tensor(data["x"].to_numpy(), dtype=torch.float32).to(get_device())
+
+        # Perform prediction
+        with torch.no_grad():
+            output = model(input_tensor)
+
+        # Convert the output back to a Daft DataFrame
+        return daft.from_pydict({"prediction": output.cpu().numpy().flatten().tolist()})
 
     @classmethod
-    def load(cls, namespace: str, table_name: str) -> BaseMLModel:
+    def load(cls, namespace: str, table_name: str):
         data_objects = cls.manager.get_data_objects(namespace, table_name)
         if len(data_objects) == 0:
             raise ValueError(
@@ -126,7 +147,6 @@ class StateSpaceModel(ModelObject):
 
     def observability_matrix(self):
         """Calculate and return the observability matrix."""
-        Mirror controllability_matrix
         import daft
         import pyarrow as pa
         import torch
@@ -190,7 +210,7 @@ class StreamingStateSpaceModel(ModelObject):
         # Return the predicted output
         return y_pred
 
-    def predict_stream(self, data: daft.DataFrame) -> daft.DataFrame:
+    def predict_stream(self, data: daft.DataFrame) -> Iterator[daft.DataFrame]:
         """
         Predict the output of the state-space model given input data in a streaming fashion.
 

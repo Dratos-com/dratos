@@ -4,10 +4,8 @@ import typing
 
 if typing.TYPE_CHECKING:
     pass
-from beta.tools.base_tool import BaseTool
 
-
-class CalculatorTool(BaseTool):
+class CalculatorTool():
     name = "calculator"
     description = "Performs basic arithmetic operations"
 
@@ -24,7 +22,3 @@ class CalculatorTool(BaseTool):
             return a / b
         else:
             raise ValueError(f"Unknown operation: {operation}")
-
-
-# Register the tool
-config.register_tool(CalculatorTool())

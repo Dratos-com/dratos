@@ -6,6 +6,7 @@ from lance import LanceDataset
 from beta.data.obj.base.data_object import DataObject
 import mlflow
 import logging
+import pyarrow.dataset as ds
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -77,8 +78,8 @@ class ModelAccessor:
                 f"Saved {len(predictions)} predictions to dataset and logged to MLflow"
             )
 
-    def get_data(self, filter_expr: Optional[pa.Expression] = None) -> List[DataObject]:
-        """Retrieve data objects, optionally filtered by a PyArrow expression."""
+    def get_data(self, filter_expr: Optional[ds.Expression] = None) -> List[DataObject]:
+        """Retrieve data objects, optionally filtered by a PyArrow dataset Expression."""
         scanner = self.dataset.scanner(filter=filter_expr)
         arrow_table = scanner.to_table()
         logger.info(f"Retrieved {len(arrow_table)} rows from dataset")
@@ -111,7 +112,7 @@ class ModelAccessor:
         self.dataset.delete(pa.field("id") == object_id)
         logger.info(f"Deleted object with id: {object_id}")
 
-    def filter(self, filter_expr: pa.Expression) -> pa.Table:
+    def filter(self, filter_expr: ds.Expression) -> pa.Table:
         """Filter the data using a PyArrow expression."""
         result = self.dataset.scanner(filter=filter_expr).to_table()
         logger.info(f"Filtered data, resulting in {len(result)} rows")

@@ -9,7 +9,6 @@ from typing import List, Optional
 from outlines import models, generate
 import ray
 from ray.actor import ActorHandle
-from beta.config import config
 import mlflow  # Add this import
 from abc import ABC, abstractmethod
 
@@ -40,7 +39,7 @@ class ImageInput(Input):
         return "Converted text from image"
 
 
-class BaseLanguageModel(models.ModelObject):
+class BaseLanguageModel(models.VLLM):
     def __init__(
         self,
         model_name: str,
