@@ -44,3 +44,8 @@ class ClientFactory:
 
         mlflow.set_tracking_uri()
         mlflow.set_registry_uri(mlflow_config.storage)
+
+    def get_ray(self):
+        ray_config = RayConfig(sc=self.storage_config, settings=self.settings)
+
+        ray.init(address=ray_config.address)

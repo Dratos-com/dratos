@@ -12,7 +12,6 @@ class VLLMEngine(OpenAIEngine):
     def __init__(
         self,
         model_name: str,
-        mlflow_client: mlflow.tracking.MlflowClient,
         config: OpenAIEngineConfig = OpenAIEngineConfig(),
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
@@ -33,10 +32,6 @@ class VLLMEngine(OpenAIEngine):
         **kwargs,
     ) -> Any:
         # Implement structured generation logic here
-        pass
-
-    async def log_metrics(self, metrics: Dict[str, Any]) -> None:
-        # Implement metric logging logic here
         pass
 
 

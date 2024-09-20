@@ -46,14 +46,14 @@ class Config(DataObject):
         storage_context: Optional[StorageContext] = None,
         settings: Optional[Dynaconf] = None,
     ):
-        return ClientFactory(storage_context, settings).create_lancedb_client()
+        return ClientFactory(storage_context, settings).create_lancedb()
 
     def get_ray(
         self,
         storage_context: Optional[StorageContext] = None,
         settings: Optional[Dynaconf] = None,
     ):
-        return ClientFactory(storage_context, settings).create_ray_client()
+        return ClientFactory(storage_context, settings).create_ray()
 
     def get_daft(
         self,

@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, List, Union, TYPE_CHECKING
-import mlflow
 import pyarrow as pa
 from outlines.processors import OutlinesLogitsProcessor
 from ....data import DataObject
@@ -19,11 +18,9 @@ class BaseEngine(ABC):
     def __init__(
         self,
         model_name: str,
-        mlflow_client: mlflow.tracking.MlflowClient,
         config: BaseEngineConfig = None,
     ):
         self.model_name = model_name
-        self.mlflow_client = mlflow_client
         self.config = config or "OpenAIEngineConfig()"  # Use string as default
         self.logits_processor: Optional[OutlinesLogitsProcessor] = None
         self._is_initialized = False
@@ -72,15 +69,6 @@ class BaseEngine(ABC):
         """Set the logits processor for structured generation."""
         self.logits_processor = processor
 
-    @abstractmethod
-    async def log_metrics(self, metrics: Dict[str, Any]) -> None:
-        """Log metrics to MLflow."""
-        pass
-
     @property
     def is_initialized(self) -> bool:
         return self._is_initialized
-
-    def some_method(self, config: "OpenAIEngineConfig") -> Any:
-        # Use config here
-        pass

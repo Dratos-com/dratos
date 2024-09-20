@@ -46,20 +46,10 @@ class OpenAIEngine(BaseEngine):
     def __init__(
         self,
         model_name: str,
-        config: dict = OpenAIEngineConfig(),
-        mlflow_client: mlflow.tracking.MlflowClient = None,
+        config: dict = OpenAIEngineConfig()
     ):
-        super().__init__(model_name=model_name, mlflow_client=mlflow_client, config=config)
+        super().__init__(model_name=model_name, config=config)
         self.client: Optional[Union[OpenAI | AsyncOpenAI]] = None
-
-    async def log_metrics(self, metrics: Dict[str, Any]) -> None:
-        if self.mlflow_client is None:
-            return
-
-        run = self.mlflow_client.get_run(self.mlflow_client.list_run_infos(experiment_id="0")[0].run_id)
-        
-        for key, value in metrics.items():
-            self.mlflow_client.log_metric(run.info.run_id, key, value)
 
     def set_logits_processor(self, processor: OutlinesLogitsProcessor) -> None:
         self.logits_processor = processor
@@ -125,7 +115,7 @@ class OpenAIEngine(BaseEngine):
     async def generate(
         self,
         prompt: str,
-        messages: List[Dict[str, str]],
+        messages: List[Dict[str, str]] = [{"role": "system", "content": "You are a helpful assistant"}],
         response_format: BaseModel = None,
         **kwargs,
     ):
@@ -133,7 +123,11 @@ class OpenAIEngine(BaseEngine):
             await self.initialize()
 
         # Add the user prompt to the messages
-        messages.append({"role": "user", "content": prompt})
+        if messages is not None:
+            messages.append({"role": "user", "content": prompt})
+        else:
+            messages = [{"role": "system", "content": "You are a helpful assistant"}, {"role": "user", "content": prompt}]
+
         response = await self.client.chat.completions.create(
             model=self.model_name,
             messages=messages,

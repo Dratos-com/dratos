@@ -4,13 +4,14 @@ from typing import Protocol, List, Any, Optional, Union
 from enum import Enum
 import numpy as np
 from pydantic import BaseModel, Field
-from ray import serve
 from ray.serve.handle import DeploymentHandle, DeploymentResponse
 from datetime import datetime
 from daft import Schema
 import logging
+import ray
+from beta.models.serve.engines.base_engine import BaseEngine
+from beta.models.serve.engines.openai_engine import OpenAIEngine
 from ..data.obj.result import Result
-from ..inference.inference_engine import InferenceEngine
 
 
 class AgentStatus(str, Enum):
@@ -93,9 +94,9 @@ class Agent:
 
     Attributes:
         name (str): The name of the agent.
-        model (DeploymentHandle): Ray Serve Deployment Handler Reference to Model Deployment.
-        embedding (DeploymentHandle): Ray Serve DeploymentHandler to Embedding Model Deployment.
-        stt (DeploymentHandle): Ray Serve DeploymentHandler to Speech To Text Model Deployment.
+        model (OpenAIEngine): Instance of the model engine.
+        embedding (OpenAIEngine): Instance of the embedding engine.
+        stt (OpenAIEngine): Instance of the speech-to-text engine.
         tools (List[ToolInterface]): List of tools the agent can utilize.
         metadata (Metadata): Metadata information for the agent.
         inference_adapter (Optional[InferenceEngine]): Inference engine adapter.
@@ -103,34 +104,34 @@ class Agent:
     """
     def __init__(self, 
                  name: str,
-                 model: DeploymentHandle,
-                 embedding: DeploymentHandle,
-                 stt: DeploymentHandle,
+                 model: OpenAIEngine,
+                 embedding: OpenAIEngine,
+                 stt: OpenAIEngine,
                  tools: Optional[List[ToolInterface]] = None,
                  metadata: Optional[Metadata] = None,
-                 inference_adapter: Optional[InferenceEngine] = None,
+                 engine: Optional[BaseEngine] = None,
                  is_async: bool = False):
         self.name = name
         self.model = model
         self.embedding = embedding
         self.stt = stt
         self.tools = tools or []
-        self.metadata = metadata or Metadata(schema=Schema({}))  # Default empty schema if not provided
-        self.inference_adapter = inference_adapter
+        self.metadata = metadata or Metadata(schema=SchemaWrapper(schema=Schema({})))  # Default empty schema if not provided
+        self.engine = engine
         self.is_async = is_async
         self.status = AgentStatus.INIT
 
-    async def __call__(self, 
-                       prompt: Optional[Prompt] = None, 
-                       messages: Optional[List[Message]] = None, 
-                       speech: Optional[Union[np.ndarray, List[float], List[np.ndarray], List[List[float]]]] = None) -> str:
+    async def process(self, 
+                      prompt: Optional[Prompt] = None, 
+                      messages: Optional[List[Message]] = None, 
+                      speech: Optional[Union[np.ndarray, List[float], List[np.ndarray], List[List[float]]]] = None) -> str:
         logging.info(f"Agent {self.name} called with prompt: {prompt}")
         self.status = AgentStatus.PROCESSING
         logging.info(f"Agent status set to {self.status}")
 
         if speech is not None:
             logging.info("Processing speech input")
-            stt_response: DeploymentResponse = self.stt.remote(speech)
+            stt_response: DeploymentResponse = await self.stt.generate.remote(speech)
             transcription = await stt_response
             logging.info(f"Speech transcribed: {transcription}")
             if prompt:
@@ -139,14 +140,13 @@ class Agent:
                 messages.append(Message(role="system", content=f"Transcription: {transcription}"))
 
         logging.info("Sending request to model")
-        llm_response: DeploymentResponse = self.model.generate.remote(prompt=prompt, messages=messages)
+        llm_response: DeploymentResponse = await self.model.generate(prompt=prompt, messages=messages)
         logging.info("Awaiting model response")
-        result = await llm_response
-        logging.info(f"Model response received: {result}")
+        logging.info(f"Model response received: {llm_response}")
 
         self.status = AgentStatus.IDLE
         logging.info(f"Agent status set to {self.status}")
-        return result
+        return llm_response
 
     def execute_pipeline(self, input_data: Any) -> Result[Any, Exception]:
         """
@@ -167,9 +167,9 @@ class Agent:
                 print(f"Pipeline halted due to error: {result.value}")
                 break
 
-        if self.inference_adapter and not result.is_error:
+        if self.engine and not result.is_error:
             try:
-                inference_result = self.inference_adapter.run_inference(result.value)
+                inference_result = self.engine.run_inference(result.value)
                 result = Result.Ok(inference_result)
             except Exception as e:
                 result = Result.Error(e)
@@ -186,7 +186,7 @@ class Agent:
 
         action_prompt = f"{prompt.content}\n\nAvailable actions: {', '.join(actions)}\n\nBased on the prompt, which action should be taken?"
         
-        action_response: DeploymentResponse = self.model.generate.remote(prompt=Prompt(content=action_prompt))
+        action_response: DeploymentResponse = await self.model.generate.remote(prompt=Prompt(content=action_prompt))
         inferred_action = await action_response
 
         # Clean up the response to match one of the available actions
