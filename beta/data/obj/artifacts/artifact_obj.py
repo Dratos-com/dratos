@@ -114,15 +114,15 @@ class Artifact:
     schema: ClassVar[pa.Schema] = artifact_schema
     obj_type: ClassVar[str] = "Artifact"
 
-    def __init__(self, files: List[str] = None, uri: Optional[str] = None):
+    def __init__(self, files: List[str] = None, uri_prefix: Optional[str] = None):
         # Create an empty DataFrame with the schema from ArtifactObject
         empty_data = {field.name: [] for field in self.schema}
         self.df = daft.from_pydict(empty_data)
 
         if files:
-            self._populate_from_file(files, uri)
+            self._populate_from_file(files, uri_prefix)
 
-    def _populate_from_file(self, files: List[str], uri: Optional[str] = None):
+    def _populate_from_file(self, files: List[str], uri_prefix: Optional[str] = None):
         rows = []
         for file in files:
             with open(file, "rb") as f:
@@ -139,7 +139,9 @@ class Artifact:
                 "updated_at": now,
                 "inserted_at": now,
                 "name": file_name,
-                "artifact_uri": (f"{uri}/{file_id}/{file_name}.gzip" if uri else ""),
+                "artifact_uri": (
+                    f"{uri_prefix}/{file_id}__{file_name}.gzip" if uri_prefix else ""
+                ),
                 "payload": gzip.compress(content),
                 "extension": os.path.splitext(file)[1][1:],
                 "mime_type": mimetypes.guess_type(file)[0]
