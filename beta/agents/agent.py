@@ -6,7 +6,7 @@ import numpy as np
 from pydantic import BaseModel, Field
 from ray.serve.handle import DeploymentHandle, DeploymentResponse
 from datetime import datetime
-from daft import Schema
+from daft import DataFrame, Schema
 import logging
 import ray
 from beta.models.serve.engines.base_engine import BaseEngine
@@ -110,6 +110,7 @@ class Agent:
                  tools: Optional[List[ToolInterface]] = None,
                  metadata: Optional[Metadata] = None,
                  engine: Optional[BaseEngine] = None,
+                 memory: Optional[List[DataFrame]] = None,
                  is_async: bool = False):
         self.name = name
         self.model = model
@@ -120,13 +121,19 @@ class Agent:
         self.engine = engine
         self.is_async = is_async
         self.status = AgentStatus.INIT
+        self.memory = memory
 
     async def process(self, prompt: Optional[Prompt | str] = None,
-                      messages: Optional[List[Message]] = None, 
+                      messages: Optional[List[Message]] = None,
                       speech: Optional[Union[np.ndarray, List[float], List[np.ndarray], List[List[float]]]] = None) -> str:
         logging.info(f"Agent {self.name} called with prompt: {prompt}")
         self.status = AgentStatus.PROCESSING
         logging.info(f"Agent status set to {self.status}")
+
+        if self.memory:
+            for df in self.memory:
+                logging.info(f"Memory: {df}")
+                messages.append(Message(role="user", content=f"Memory: {df}"))
 
         if speech is not None:
             logging.info("Processing speech input")

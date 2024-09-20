@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import typing
 from typing import ClassVar
+
 if typing.TYPE_CHECKING:
     pass
 
@@ -10,17 +11,50 @@ import gzip
 import hashlib
 import mimetypes
 import uuid
-from ulid import ULID 
+from ulid import ULID
 from datetime import datetime
 from enum import Enum
 from typing import Optional, Dict, Any, List
 import os
 import json
 import daft
+from daft import lit, col
 
 from beta.data.obj.base.data_object import DataObject, data_object_schema
 
 artifact_schema = [
+    pa.field(
+        "id",
+        pa.string(),
+        nullable=False,
+        metadata={"description": "ULID Unique identifier for the record"},
+    ),
+    pa.field(
+        "type",
+        pa.string(),
+        nullable=False,
+        metadata={"description": "Type of the data object"},
+    ),
+    pa.field(
+        "created_at",
+        pa.timestamp("ns", tz="UTC"),
+        nullable=False,
+        metadata={"description": "Timestamp when the record was created"},
+    ),
+    pa.field(
+        "updated_at",
+        pa.timestamp("ns", tz="UTC"),
+        nullable=False,
+        metadata={"description": "Timestamp when the record was last updated"},
+    ),
+    pa.field(
+        "inserted_at",
+        pa.timestamp("ns", tz="UTC"),
+        nullable=False,
+        metadata={
+            "description": "Timestamp when the data object was inserted into the database"
+        },
+    ),
     pa.field(
         "name",
         pa.string(),
@@ -77,36 +111,23 @@ class Artifact:
     Versatile model for managing artifacts in a data system.
     """
 
-    schema: ClassVar[pa.Schema] = {
-            "id": daft.DataType.string(),
-            "type": daft.DataType.string(),
-            "created_at": daft.DataType.string(),
-            "updated_at": daft.DataType.string(),
-            "inserted_at": daft.DataType.string(),
-            "name": daft.DataType.string(),
-            "artifact_uri": daft.DataType.string(),
-            "payload": daft.DataType.binary(),
-            "extension": daft.DataType.string(),
-            "mime_type": daft.DataType.string(),
-            "version": daft.DataType.string(),
-            "size_bytes": daft.DataType.int64(),
-            "checksum": daft.DataType.string(),
-        }
+    schema: ClassVar[pa.Schema] = artifact_schema
     obj_type: ClassVar[str] = "Artifact"
 
-    def __init__(self, files: List[str] = None, bucket_uri: str = None):
+    def __init__(self, files: List[str] = None, uri: Optional[str] = None):
         # Create an empty DataFrame with the schema from ArtifactObject
-        empty_data = {field.name: [] for field in artifact_schema}
+        empty_data = {field.name: [] for field in self.schema}
         self.df = daft.from_pydict(empty_data)
-        
-        if files:
-            self._populate_from_file(files, bucket_uri)
 
-    def _populate_from_file(self, files: List[str], bucket_uri: str = None):
+        if files:
+            self._populate_from_file(files, uri)
+
+    def _populate_from_file(self, files: List[str], uri: Optional[str] = None):
+        rows = []
         for file in files:
-            with open(file, 'rb') as f:
+            with open(file, "rb") as f:
                 content = f.read()
-            
+
             file_id = str(ULID())
             now = datetime.now().isoformat()
             file_name = os.path.basename(file)
@@ -118,22 +139,21 @@ class Artifact:
                 "updated_at": now,
                 "inserted_at": now,
                 "name": file_name,
-                "artifact_uri": f"{bucket_uri}/{file_id}/{file_name}.gzip" if bucket_uri else "",
+                "artifact_uri": (f"{uri}/{file_id}/{file_name}.gzip" if uri else ""),
                 "payload": gzip.compress(content),
                 "extension": os.path.splitext(file)[1][1:],
-                "mime_type": mimetypes.guess_type(file)[0] or 'application/octet-stream',
+                "mime_type": mimetypes.guess_type(file)[0]
+                or "application/octet-stream",
                 "version": "1.0",
                 "size_bytes": len(content),
-                "checksum": hashlib.md5(content).hexdigest()
+                "checksum": hashlib.md5(content).hexdigest(),
             }
+            rows.append(new_row)
 
-            new_df = daft.from_pydict({k: [v] for k, v in new_row.items()})
-            self.df = self.df.concat(new_df)
+        self.df = daft.from_pylist(rows)
 
     def __repr__(self):
         return f"<Artifact with {len(self.df)} files>"
 
     def __str__(self):
         return self.__repr__()
-
-
