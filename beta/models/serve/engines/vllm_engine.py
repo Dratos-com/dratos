@@ -8,20 +8,16 @@ import vllm
 from openai import AsyncOpenAI, OpenAI
 
 
-class VLLMEngineConfig(OpenAIEngineConfig):
-    """Configuration for VLLM Engine."""
-
-
 class VLLMEngine(OpenAIEngine):
     def __init__(
         self,
         model_name: str,
         mlflow_client: mlflow.tracking.MlflowClient,
-        config: VLLMEngineConfig = VLLMEngineConfig(),
+        config: OpenAIEngineConfig = OpenAIEngineConfig(),
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
     ):
-        super().__init__(model_name, mlflow_client, config)
+        super().__init__(model_name, config)
         self.api_key = api_key
         self.base_url = base_url
         self.client: Optional[AsyncOpenAI | OpenAI] = None
@@ -29,6 +25,19 @@ class VLLMEngine(OpenAIEngine):
     async def initialize(self) -> None:
         self.client = AsyncOpenAI(api_key=self.api_key, base_url=self.base_url)
         mlflow.openai.autolog()
+
+    async def generate_structured(
+        self,
+        prompt: Union[str, List[str]],
+        structure: Union[str, Dict, pa.Schema],
+        **kwargs,
+    ) -> Any:
+        # Implement structured generation logic here
+        pass
+
+    async def log_metrics(self, metrics: Dict[str, Any]) -> None:
+        # Implement metric logging logic here
+        pass
 
 
 if __name__ == "__main__":

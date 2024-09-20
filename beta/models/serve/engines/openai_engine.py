@@ -4,22 +4,20 @@ from openai import OpenAI, AsyncOpenAI
 from pydantic import BaseModel, Field
 
 from beta.data.obj.artifacts.artifact_obj import Artifact
-from .base_engine import BaseEngine
+from .base_engine import BaseEngine, BaseEngineConfig
 import mlflow
 import json
 import pyarrow as pa
 from beta.data.obj import DataObject
 import tiktoken
-from outlines.processors import (
-    BaseLogitsProcessor,
-    JSONLogitsProcessor,
-    RegexLogitsProcessor,
-)
+from outlines.processors.base_logits_processor import OutlinesLogitsProcessor
+from outlines.processors.structured import JSONLogitsProcessor
+from outlines.processors.structured import RegexLogitsProcessor
 from outlines.fsm.json_schema import build_regex_from_schema
 import lark
+import daft
 
-
-class OpenAIEngineConfig(DataObject):
+class OpenAIEngineConfig(BaseEngineConfig):
     """Configuration for OpenAI Engine."""
 
     model_name: str = Field(
@@ -58,6 +56,25 @@ class OpenAIEngineConfig(DataObject):
         description="How many chat completion choices to generate for each input message.",
     )
 
+    def __init__(self, data: Dict[str, Any] = None):
+        super().__init__()
+        if data is None:
+            data = {}
+        
+        # Convert single values to lists
+        data = {k: [v] if not isinstance(v, list) else v for k, v in data.items()}
+        
+        self.df = daft.from_pydict(data)
+
+    def update(self, new_config: Dict[str, Any]) -> None:
+        new_data = {k: [v] if not isinstance(v, list) else v for k, v in new_config.items()}
+        new_df = daft.from_pydict(new_data)
+        self.df = self.df.update(new_df)
+
+    def __getattr__(self, name):
+        if name in self.df.columns:
+            return self.df[name][0]
+
     def __call__(self):
         return self.model_dump()
 
@@ -67,11 +84,13 @@ class OpenAIEngine(BaseEngine):
         self,
         model_name: str = "openai/o1-preview",
         config: dict = OpenAIEngineConfig(),
+        mlflow_client: mlflow.tracking.MlflowClient = None,
     ):
-        super().__init__(model_name=self.model_name, config=config)
+        super().__init__(model_name=model_name, mlflow_client=mlflow_client, config=config)
         self.client: Optional[Union[OpenAI | AsyncOpenAI]] = None
         self.config = config
-        self.logits_processor: Optional[BaseLogitsProcessor] = None
+        self.logits_processor: Optional[OutlinesLogitsProcessor] = None
+        self.model_name = model_name
 
     async def initialize(self) -> None:
         self.client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -117,7 +136,7 @@ class OpenAIEngine(BaseEngine):
         prompt: Union[str, List[str]],
         structure: Union[str, Dict, pa.Schema, DataObject],
         grammar: lark.Lark = None,
-        logits_processor: Optional[BaseLogitsProcessor] = None,
+        logits_processor: Optional[OutlinesLogitsProcessor] = None,
         **kwargs,
     ):
         if logits_processor is None:

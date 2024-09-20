@@ -39,14 +39,12 @@ class ImageInput(Input):
         return "Converted text from image"
 
 
-class BaseLanguageModel(models.VLLM):
+class BaseLanguageModel:
+    """Base class for language models."""
     def __init__(
-        self,
-        model_name: str,
-        mlflow_client: mlflow.tracking.MlflowClient,
-        config: dict = None,
+        self
     ):
-        super().__init__(model_name, mlflow_client, config=config)
+        super().__init__()
         self.client: Optional[ActorHandle] = None
         self._is_initialized = False
 

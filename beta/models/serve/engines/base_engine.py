@@ -1,11 +1,12 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, List, Union
+from typing import Any, Dict, Optional, List, Union, TYPE_CHECKING
 import mlflow
 import pyarrow as pa
 from outlines.processors import OutlinesLogitsProcessor
-from beta.models.serve.engines.openai_engine import OpenAIEngineConfig
-from beta.data.obj.base import DataObject
+from ....data import DataObject
 
+if TYPE_CHECKING:
+    from .openai_engine import OpenAIEngineConfig
 
 class BaseEngineConfig(DataObject):
     @abstractmethod
@@ -19,11 +20,11 @@ class BaseEngine(ABC):
         self,
         model_name: str,
         mlflow_client: mlflow.tracking.MlflowClient,
-        config: BaseEngineConfig = OpenAIEngineConfig(),
+        config: BaseEngineConfig = None,
     ):
         self.model_name = model_name
         self.mlflow_client = mlflow_client
-        self.config = config
+        self.config = config or "OpenAIEngineConfig()"  # Use string as default
         self.logits_processor: Optional[OutlinesLogitsProcessor] = None
         self._is_initialized = False
 
@@ -79,3 +80,7 @@ class BaseEngine(ABC):
     @property
     def is_initialized(self) -> bool:
         return self._is_initialized
+
+    def some_method(self, config: "OpenAIEngineConfig") -> Any:
+        # Use config here
+        pass
