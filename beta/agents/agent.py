@@ -9,8 +9,9 @@ from datetime import datetime
 from daft import DataFrame, Schema
 import logging
 import ray
+from beta.models.obj.base_language_model import LLM
 from beta.models.serve.engines.base_engine import BaseEngine
-from beta.models.serve.engines.openai_engine import OpenAIEngine
+from beta.models.serve.engines.openai_engine import OpenAIEngine, OpenAIEngineConfig
 from ..data.obj.result import Result
 
 
@@ -104,9 +105,9 @@ class Agent:
     """
     def __init__(self, 
                  name: str,
-                 model: OpenAIEngine,
-                 embedding: OpenAIEngine,
-                 stt: OpenAIEngine,
+                 model: LLM = LLM("openai/gpt-4o", engine=OpenAIEngine(config=OpenAIEngineConfig())),
+                 embedding: LLM = LLM("openai/text-embedding-3-large", engine=OpenAIEngine(config=OpenAIEngineConfig())),
+                 stt: LLM = LLM("openai/whisper-1", engine=OpenAIEngine(config=OpenAIEngineConfig())),
                  tools: Optional[List[ToolInterface]] = None,
                  metadata: Optional[Metadata] = None,
                  engine: Optional[BaseEngine] = None,

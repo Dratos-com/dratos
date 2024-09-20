@@ -2,12 +2,11 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, List, Union, TYPE_CHECKING
 import pyarrow as pa
 from outlines.processors import OutlinesLogitsProcessor
-from ....data import DataObject
 
 if TYPE_CHECKING:
     from .openai_engine import OpenAIEngineConfig
 
-class BaseEngineConfig(DataObject):
+class BaseEngineConfig(ABC):
     @abstractmethod
     def update(self, new_config: Dict[str, Any]) -> None:
         """Update the engine configuration."""
@@ -17,16 +16,15 @@ class BaseEngineConfig(DataObject):
 class BaseEngine(ABC):
     def __init__(
         self,
-        model_name: str,
-        config: BaseEngineConfig = None,
+        config: BaseEngineConfig,
     ):
-        self.model_name = model_name
+        self.model_name = ""
         self.config = config or "OpenAIEngineConfig()"  # Use string as default
         self.logits_processor: Optional[OutlinesLogitsProcessor] = None
         self._is_initialized = False
 
     @abstractmethod
-    async def initialize(self) -> None:
+    async def initialize(self, config: BaseEngineConfig) -> None:
         """Initialize the model and any necessary resources."""
         pass
 

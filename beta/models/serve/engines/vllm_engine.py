@@ -2,21 +2,17 @@ from beta.models.serve.engines.openai_engine import OpenAIEngine, OpenAIEngineCo
 from typing import Any, Dict, List, Union, Type, Optional
 import pyarrow as pa
 import mlflow
-from beta.data.obj.base import DataObject
-import os
-import vllm
 from openai import AsyncOpenAI, OpenAI
 
 
 class VLLMEngine(OpenAIEngine):
     def __init__(
         self,
-        model_name: str,
         config: OpenAIEngineConfig = OpenAIEngineConfig(),
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
     ):
-        super().__init__(model_name, config)
+        super().__init__(config)
         self.api_key = api_key
         self.base_url = base_url
         self.client: Optional[AsyncOpenAI | OpenAI] = None

@@ -45,10 +45,9 @@ class OpenAIEngineConfig(BaseEngineConfig):
 class OpenAIEngine(BaseEngine):
     def __init__(
         self,
-        model_name: str,
         config: dict = OpenAIEngineConfig()
     ):
-        super().__init__(model_name=model_name, config=config)
+        super().__init__(config=config)
         self.client: Optional[Union[OpenAI | AsyncOpenAI]] = None
 
     def set_logits_processor(self, processor: OutlinesLogitsProcessor) -> None:
@@ -57,9 +56,14 @@ class OpenAIEngine(BaseEngine):
     def get_logits_processor(self) -> OutlinesLogitsProcessor:
         return self.logits_processor
     
-    async def generate_structured(self, prompt: str | List[str], structure: str | Dict | Any, **kwargs) -> Coroutine[Any, Any, Any]:
+    async def generate_structured(self, prompt: str | List[str], structure: str | Dict | Any, config: Optional[OpenAIEngineConfig]=None, **kwargs) -> Coroutine[Any, Any, Any]:
         if not self.client:
-            await self.initialize()
+            await self.initialize(config if config else self.config)
+        
+        if config: 
+            self.config = config
+            self.model_name = config
+            
 
         if isinstance(prompt, list):
             prompt = "\n".join(prompt)
@@ -83,7 +87,7 @@ class OpenAIEngine(BaseEngine):
         response_format = {"type": "json_object"}
 
         response = await self.client.chat.completions.create(
-            model=self.model_name,
+            model="gpt-4o",
             messages=messages,
             response_format=response_format,
             **kwargs
@@ -92,7 +96,8 @@ class OpenAIEngine(BaseEngine):
         result = response.choices[0].message.content
         return result
 
-    async def initialize(self) -> None:
+    async def initialize(self, config: OpenAIEngineConfig) -> None:
+        self.config = config
         self.client = AsyncOpenAI(
             api_key=self.config.get("api_key"),
             base_url=self.config.get("base_url", "https://api.openai.com/v1")
