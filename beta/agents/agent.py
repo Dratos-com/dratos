@@ -121,8 +121,7 @@ class Agent:
         self.is_async = is_async
         self.status = AgentStatus.INIT
 
-    async def process(self, 
-                      prompt: Optional[Prompt] = None, 
+    async def process(self, prompt: Optional[Prompt | str] = None,
                       messages: Optional[List[Message]] = None, 
                       speech: Optional[Union[np.ndarray, List[float], List[np.ndarray], List[List[float]]]] = None) -> str:
         logging.info(f"Agent {self.name} called with prompt: {prompt}")
@@ -140,6 +139,11 @@ class Agent:
                 messages.append(Message(role="system", content=f"Transcription: {transcription}"))
 
         logging.info("Sending request to model")
+        if isinstance(prompt, Prompt):
+            prompt = prompt.content
+        
+        if messages is None:
+            messages = [{"role": "system", "content": "You are a helpful assistant"}, {"role": "user", "content": prompt}]
         llm_response: DeploymentResponse = await self.model.generate(prompt=prompt, messages=messages)
         logging.info("Awaiting model response")
         logging.info(f"Model response received: {llm_response}")
