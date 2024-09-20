@@ -1,5 +1,5 @@
 import os
-from typing import Any, Dict, List, Union, Optional
+from typing import Any, Coroutine, Dict, List, Union, Optional
 from openai import OpenAI, AsyncOpenAI
 from pydantic import BaseModel, Field
 
@@ -17,83 +17,96 @@ from outlines.fsm.json_schema import build_regex_from_schema
 import lark
 import daft
 
+
 class OpenAIEngineConfig(BaseEngineConfig):
-    """Configuration for OpenAI Engine."""
-
-    model_name: str = Field(
-        "o1-preview",
-        description="The name of the OpenAI model to use.",
-    )
-    stream: bool = Field(
-        False,
-        description="Whether to stream the response.",
-    )
-    temperature: float = Field(
-        0.7,
-        description="Sampling temperature, higher values means the model will take more risks.",
-    )
-    max_tokens: int = Field(
-        100, description="The maximum number of tokens to generate in the completion."
-    )
-    top_p: float = Field(
-        1.0,
-        description="Nucleus sampling, where p is the probability of the top_p most likely tokens.",
-    )
-    top_k: int = Field(
-        40,
-        description="The number of top most likely tokens to consider for generation.",
-    )
-    frequency_penalty: float = Field(
-        0.0,
-        description="Penalize new tokens based on their existing frequency in the text so far.",
-    )
-    presence_penalty: float = Field(
-        0.0,
-        description="Penalize new tokens based on whether they appear in the text so far.",
-    )
-    n: int = Field(
-        1,
-        description="How many chat completion choices to generate for each input message.",
-    )
-
     def __init__(self, data: Dict[str, Any] = None):
         super().__init__()
         if data is None:
             data = {}
         
         # Convert single values to lists
-        data = {k: [v] if not isinstance(v, list) else v for k, v in data.items()}
-        
-        self.df = daft.from_pydict(data)
+        self._data = {k: [v] if not isinstance(v, (list, tuple)) else v for k, v in data.items()}
+        self.df = daft.from_pydict(self._data)
 
     def update(self, new_config: Dict[str, Any]) -> None:
-        new_data = {k: [v] if not isinstance(v, list) else v for k, v in new_config.items()}
-        new_df = daft.from_pydict(new_data)
-        self.df = self.df.update(new_df)
+        new_data = {k: [v] if not isinstance(v, (list, tuple)) else v for k, v in new_config.items()}
+        self._data.update(new_data)
+        self.df = daft.from_pydict(self._data)
+
+    def get(self, name, default=None):
+        if name in self._data:
+            return self._data[name][0]
+        return default
 
     def __getattr__(self, name):
-        if name in self.df.columns:
-            return self.df[name][0]
-
-    def __call__(self):
-        return self.model_dump()
+        return self.get(name)
 
 
 class OpenAIEngine(BaseEngine):
     def __init__(
         self,
-        model_name: str = "openai/o1-preview",
+        model_name: str,
         config: dict = OpenAIEngineConfig(),
         mlflow_client: mlflow.tracking.MlflowClient = None,
     ):
         super().__init__(model_name=model_name, mlflow_client=mlflow_client, config=config)
         self.client: Optional[Union[OpenAI | AsyncOpenAI]] = None
-        self.config = config
-        self.logits_processor: Optional[OutlinesLogitsProcessor] = None
-        self.model_name = model_name
+
+    async def log_metrics(self, metrics: Dict[str, Any]) -> None:
+        if self.mlflow_client is None:
+            return
+
+        run = self.mlflow_client.get_run(self.mlflow_client.list_run_infos(experiment_id="0")[0].run_id)
+        
+        for key, value in metrics.items():
+            self.mlflow_client.log_metric(run.info.run_id, key, value)
+
+    def set_logits_processor(self, processor: OutlinesLogitsProcessor) -> None:
+        self.logits_processor = processor
+
+    def get_logits_processor(self) -> OutlinesLogitsProcessor:
+        return self.logits_processor
+    
+    async def generate_structured(self, prompt: str | List[str], structure: str | Dict | Any, **kwargs) -> Coroutine[Any, Any, Any]:
+        if not self.client:
+            await self.initialize()
+
+        if isinstance(prompt, list):
+            prompt = "\n".join(prompt)
+
+        # Convert structure to a string representation
+        if isinstance(structure, dict):
+            structure_str = json.dumps(structure)
+        elif isinstance(structure, pa.Schema):
+            structure_str = structure.to_string()
+        else:
+            structure_str = str(structure)
+
+        # Add the structure requirement to the prompt
+        json_prompt = f"{prompt}\nPlease provide the answer in the following JSON structure: {structure_str}"
+
+        messages = [
+            {"role": "system", "content": "You are a helpful assistant that provides answers in the specified JSON format."},
+            {"role": "user", "content": json_prompt}
+        ]
+
+        response_format = {"type": "json_object"}
+
+        response = await self.client.chat.completions.create(
+            model=self.model_name,
+            messages=messages,
+            response_format=response_format,
+            **kwargs
+        )
+
+        result = response.choices[0].message.content
+        return result
 
     async def initialize(self) -> None:
-        self.client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        self.client = AsyncOpenAI(
+            api_key=self.config.get("api_key"),
+            base_url=self.config.get("base_url", "https://api.openai.com/v1")
+        )
 
     async def shutdown(self) -> None:
         if self.client:
