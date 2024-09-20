@@ -2,8 +2,9 @@ from typing import TypeVar, Generic, Union, Callable
 
 T = TypeVar('T')
 E = TypeVar('E')
+U = TypeVar('U')
 
-class Result(Generic[T, E]):
+class Result(Generic[T, E, U]):
     def __init__(self, value: Union[T, E], is_error: bool = False):
         self.value = value
         self.is_error = is_error

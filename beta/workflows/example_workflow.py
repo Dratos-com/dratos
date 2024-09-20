@@ -1,7 +1,7 @@
 from beta.agents.agent import Agent
 from beta.helpers.schema_validator import SchemaValidator, MetadataSchema
 from beta.helpers.serializer import Serializer, DeltaCatBackend
-from beta.helpers.result import Result
+from beta.data.obj.result import Result
 
 def main():
     # Initialize Schema Validator

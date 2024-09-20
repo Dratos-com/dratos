@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from .result import Result
+from ..data.obj.result import Result
 import daft
 
 class DataframeHandler(ABC):

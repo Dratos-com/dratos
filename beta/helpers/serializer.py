@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 import pyarrow as pa
-from .result import Result
+from ..data.obj.result import Result
 
 class PersistenceBackend(ABC):
     @abstractmethod

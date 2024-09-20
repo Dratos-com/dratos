@@ -77,11 +77,7 @@ class Artifact:
     Versatile model for managing artifacts in a data system.
     """
 
-    schema: ClassVar[pa.Schema] = pa.schema(data_object_schema+artifact_schema)
-    obj_type: ClassVar[str] = "Artifact"
-
-    def __init__(self, files: List[str] = None, bucket_uri: str = None):
-        self.schema = {
+    schema: ClassVar[pa.Schema] = {
             "id": daft.DataType.string(),
             "type": daft.DataType.string(),
             "created_at": daft.DataType.string(),
@@ -96,7 +92,9 @@ class Artifact:
             "size_bytes": daft.DataType.int64(),
             "checksum": daft.DataType.string(),
         }
-        
+    obj_type: ClassVar[str] = "Artifact"
+
+    def __init__(self, files: List[str] = None, bucket_uri: str = None):
         # Create an empty DataFrame with the schema from ArtifactObject
         empty_data = {field.name: [] for field in artifact_schema}
         self.df = daft.from_pydict(empty_data)

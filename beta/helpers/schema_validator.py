@@ -1,11 +1,14 @@
 from pydantic import BaseModel, ValidationError
-from typing import Dict, TypeVar, Generic
-from .result import Result
+from typing import Dict, TypeVar, Optional, Type
+from ..data.obj.result import Result
+from daft import Schema
+from datetime import datetime
+from typing import Optional
 
 T = TypeVar('T')
 
 class MetadataSchema(BaseModel):
-    schema: str
+    schema: Schema
     timestamp: datetime
     provenance: Optional[str]
 
