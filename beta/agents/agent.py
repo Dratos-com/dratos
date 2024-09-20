@@ -8,7 +8,7 @@ from ray import serve
 from ray.serve.handle import DeploymentHandle, DeploymentResponse
 from datetime import datetime
 from daft import Schema
-
+import logging
 from ..data.obj.result import Result
 from ..inference.inference_engine import InferenceEngine
 
@@ -124,20 +124,28 @@ class Agent:
                        prompt: Optional[Prompt] = None, 
                        messages: Optional[List[Message]] = None, 
                        speech: Optional[Union[np.ndarray, List[float], List[np.ndarray], List[List[float]]]] = None) -> str:
+        logging.info(f"Agent {self.name} called with prompt: {prompt}")
         self.status = AgentStatus.PROCESSING
+        logging.info(f"Agent status set to {self.status}")
 
         if speech is not None:
+            logging.info("Processing speech input")
             stt_response: DeploymentResponse = self.stt.remote(speech)
             transcription = await stt_response
+            logging.info(f"Speech transcribed: {transcription}")
             if prompt:
                 prompt.content += f"\nTranscription: {transcription}"
             elif messages:
                 messages.append(Message(role="system", content=f"Transcription: {transcription}"))
 
+        logging.info("Sending request to model")
         llm_response: DeploymentResponse = self.model.generate.remote(prompt=prompt, messages=messages)
+        logging.info("Awaiting model response")
         result = await llm_response
+        logging.info(f"Model response received: {result}")
 
         self.status = AgentStatus.IDLE
+        logging.info(f"Agent status set to {self.status}")
         return result
 
     def execute_pipeline(self, input_data: Any) -> Result[Any, Exception]:
