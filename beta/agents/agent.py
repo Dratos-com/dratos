@@ -26,6 +26,8 @@ from ..data.obj.result import Result
 from ..data.obj.memory import Memory, MemoryStore
 from ..tools.git_api import GitAPI
 
+from beta.memory.lancedb_store import LanceDBMemoryStore
+from beta.git.git_api import GitAPI
 
 class AgentStatus(str, Enum):
     """
@@ -149,6 +151,8 @@ class Agent:
         memory_db_uri: Optional[str] = None,
         git_repo_path: Optional[str] = None,
         is_async: bool = False,
+        memory_store=None,
+        git_api=None,
     ):
         self.name = name
         self.model = model
@@ -171,10 +175,8 @@ class Agent:
             .get("sentence-transformers")
             .create(name="BAAI/bge-small-en-v1.5")
         )
-        self.memory_store = MemoryStore(memory_db_uri)
-        self.git_api = GitAPI(git_repo_path)
-
-
+        self.memory_store = memory_store or LanceDBMemoryStore()
+        self.git_api = git_api or GitAPI()
 
     async def process(
         self,
@@ -310,16 +312,14 @@ class Agent:
 
     def switch_memory_branch(self, branch_name: str):
         self.git_api.switch_branch(branch_name)
+        self._reload_memories()
 
     def time_travel(self, commit_hash: str):
         self.git_api.checkout_commit(commit_hash)
-        # Reload memories from the current state
         self._reload_memories()
 
     def _reload_memories(self):
-        # This method should reload memories from the LanceDB table
-        # based on the current Git state
-        self.memory = self.memory_store.get_all_memories()
+        self.memory_store.reload_memories()
 
     async def execute_pipeline(self, input_data: Any) -> Result[Any, Exception]:
         """
