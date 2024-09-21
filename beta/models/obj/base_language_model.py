@@ -108,19 +108,25 @@ class LLM(BaseLanguageModel):
         pass
 
     @abstractmethod
-    async def generate(self, input: Input, **kwargs) -> str:
+    async def generate(self, input: Input | str, **kwargs) -> str:
         if not self.is_initialized:
             await self.initialize()
-        prompt = input.to_text()
-        return await self.client.generate.remote(prompt, **kwargs)
+        if isinstance(input, str):
+            prompt = input
+        else:
+            prompt = input.to_text()
+        return await self.engine.generate(prompt, **kwargs)
 
     async def generate_structured(
-        self, input: Input, structure: dict, **kwargs
+        self, input: Input | str, structure: dict, **kwargs
     ) -> dict:
         if not self.is_initialized:
             await self.initialize()
-        prompt = input.to_text()
-        return await self.client.generate_structured.remote(prompt, structure, **kwargs)
+        if isinstance(input, str):
+            prompt = input
+        else:
+            prompt = input.to_text()
+        return await self.engine.generate_structured(prompt, structure, **kwargs)
 
     @property
     def supported_tasks(self) -> List[str]:
