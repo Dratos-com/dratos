@@ -137,7 +137,7 @@ class Agent:
         self.memory = memory
         self.artifacts = artifacts
 
-        self.lancedb_client = lancedb.connect("lancedb://localhost:5432/lancedb")
+        self.lancedb_client = lancedb.connect("~/.lancedb")
         logging.info(f"Lancedb client connected: {self.lancedb_client}")
 
     async def process(self, prompt: Optional[Prompt | str] = None,
@@ -194,7 +194,7 @@ class Agent:
         vector_table_name = "artifacts_vectors"
         try:
             logging.info(f"Storing artifact in LanceDB: {artifact}")
-            
+
             # Get the DataFrame from the Artifact
             artifact_df = artifact.df
             
@@ -204,28 +204,22 @@ class Agent:
             artifact_embedded_df = artifact_df.with_column(
                 "vector",
                 col("payload").apply(
-                    vectorize_payload,
+                    lambda payload: asyncio.run_coroutine_threadsafe(vectorize_payload(payload), asyncio.get_event_loop()).result(),
                     return_dtype=DataType.embedding(DataType.float32(), size=4096)
                 )
             )
-
-            # Convert to PyArrow table
-            pa_table = artifact_embedded_df.to_arrow()
-
             # Check if the vector table exists
             if vector_table_name not in self.lancedb_client.table_names():
                 # Create a new vector table with the 'vector' column
-                self.lancedb_client.create_table(vector_table_name, pa_table)
+                self.lancedb_client.create_table(vector_table_name, artifact_embedded_df)
                 logging.info(f"Created new vector table '{vector_table_name}' in LanceDB.")
             else:
                 # Append vectors to the existing vector table
                 existing_vector_table = self.lancedb_client.open_table(vector_table_name)
-                existing_vector_table.add(pa_table)
+                existing_vector_table.add(artifact_embedded_df)
                 logging.info(f"Appended vectors to existing table '{vector_table_name}' in LanceDB.")
         except Exception as e:
             logging.error(f"Failed to store artifact vectors in LanceDB: {e}")
-            logging.error(f"Artifact data schema: {artifact_df.schema}")
-            logging.error(f"Artifact data sample: {artifact_df.sample(5).collect()}")
             raise
     
     def execute_pipeline(self, input_data: Any) -> Result[Any, Exception]:
