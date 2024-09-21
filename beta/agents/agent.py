@@ -1,14 +1,18 @@
 """ Defines the Agent class and related types and functions. """
 from __future__ import annotations
+import asyncio
 from typing import Protocol, List, Any, Optional, Union
 from enum import Enum
 from datetime import datetime
 import logging
-from daft import DataFrame, Schema, DataType, lit
+from altair import Vector2string
+from daft import DataFrame, Schema, DataType, lit, col
 import lancedb
 import numpy as np
 from pydantic import BaseModel, Field
 from ray.serve.handle import DeploymentResponse
+
+from ..data.obj.artifacts.artifact_obj import Artifact
 from ..models.obj.base_language_model import LLM
 from ..models.serve.engines.base_engine import BaseEngine
 from ..models.serve.engines.openai_engine import OpenAIEngine, OpenAIEngineConfig
@@ -170,7 +174,7 @@ class Agent:
         if self.artifacts:
             for artifact in self.artifacts:
                 # store in lancedb
-                self.store_in_lancedb(artifact)
+                await self.store_in_lancedb(artifact)
 
         llm_response: DeploymentResponse = await self.model.generate(prompt=prompt, messages=messages)
         logging.info("Awaiting model response")
@@ -180,40 +184,50 @@ class Agent:
         logging.info(f"Agent status set to {self.status}")
         return llm_response
 
-    def store_in_lancedb(self, artifact: DataFrame):
+    async def store_in_lancedb(self, artifact: Artifact):
         """
-        Stores the vectors derived from the artifact DataFrame into LanceDB's vector storage.
+        Stores the vectors derived from the Artifact into LanceDB's vector storage.
 
         Args:
-            artifact (DataFrame): The artifact DataFrame to process and store vectors from.
+            artifact (Artifact): The Artifact object to process and store vectors from.
         """
         vector_table_name = "artifacts_vectors"
         try:
-            # Example: Assuming 'revenue' is a column to be vectorized
-            # Convert Daft DataFrame to Pandas DataFrame
-            artifact_embedded_df = artifact.with_column("vector", lit(DataType.embedding(DataType.float32, size=1408)))
-            pa_table = artifact_embedded_df.collect().to_arrow()
+            logging.info(f"Storing artifact in LanceDB: {artifact}")
+            
+            # Get the DataFrame from the Artifact
+            artifact_df = artifact.df
+            
+            async def vectorize_payload(payload):
+                return await self.model.get_embedding(payload)
 
-            # Perform vectorization (You can use embeddings or any vectorization method)
-            # For demonstration, we'll use revenue as a simple vector
-            vectors = pa_table[['revenue']].values.tolist()  # Replace with actual vectorization
+            artifact_embedded_df = artifact_df.with_column(
+                "vector",
+                col("payload").apply(
+                    vectorize_payload,
+                    return_dtype=DataType.embedding(DataType.float32(), size=4096)
+                )
+            )
 
-            # Add vectors to the DataFrame
-            pa_table['vector'] = vectors
+            # Convert to PyArrow table
+            pa_table = artifact_embedded_df.to_arrow()
 
             # Check if the vector table exists
             if vector_table_name not in self.lancedb_client.table_names():
                 # Create a new vector table with the 'vector' column
-                self.lancedb_client.create_table(vector_table_name, pa_table[['vector']])
+                self.lancedb_client.create_table(vector_table_name, pa_table)
                 logging.info(f"Created new vector table '{vector_table_name}' in LanceDB.")
             else:
                 # Append vectors to the existing vector table
                 existing_vector_table = self.lancedb_client.open_table(vector_table_name)
                 existing_vector_table.add(pa_table)
-                logging.info(f"Appended vectors to existing vector table '{vector_table_name}' in LanceDB.")
+                logging.info(f"Appended vectors to existing table '{vector_table_name}' in LanceDB.")
         except Exception as e:
             logging.error(f"Failed to store artifact vectors in LanceDB: {e}")
-
+            logging.error(f"Artifact data schema: {artifact_df.schema}")
+            logging.error(f"Artifact data sample: {artifact_df.sample(5).collect()}")
+            raise
+    
     def execute_pipeline(self, input_data: Any) -> Result[Any, Exception]:
         """
         Executes the agent's processing pipeline.

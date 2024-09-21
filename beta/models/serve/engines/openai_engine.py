@@ -15,7 +15,7 @@ from outlines.fsm.json_schema import build_regex_from_schema
 from outlines.processors.base_logits_processor import OutlinesLogitsProcessor
 from outlines.processors.structured import JSONLogitsProcessor
 from outlines.processors.structured import RegexLogitsProcessor
-
+import numpy as np
 
 class OpenAIEngineConfig(BaseEngineConfig):
     """
@@ -68,6 +68,7 @@ class OpenAIEngine(BaseEngine):
         self.config: OpenAIEngineConfig = config
         self.client: Optional[Union[OpenAI | AsyncOpenAI]] = None
         self.model_name = config.get("model_name", "gpt-4o")
+        self.embedding_model = None
 
     def set_logits_processor(self, processor: OutlinesLogitsProcessor) -> None:
         """
@@ -132,6 +133,9 @@ class OpenAIEngine(BaseEngine):
             api_key=self.config.get("api_key"),
             base_url=self.config.get("base_url", "https://api.openai.com/v1")
         )
+        # Get the first available model for embeddings
+        models = await self.client.models.list()
+        self.embedding_model = models.data[0].id
 
     async def shutdown(self) -> None:
         """
@@ -152,7 +156,7 @@ class OpenAIEngine(BaseEngine):
         Get the supported models for the OpenAI engine.
         """
         if not self.client:
-            await self.initialize()
+            await self.initialize(self.config)
         models = await self.client.models.list()
         return [model.id for model in models.data]
 
@@ -167,7 +171,7 @@ class OpenAIEngine(BaseEngine):
         Generate text from the OpenAI engine.
         """
         if not self.client:
-            await self.initialize()
+            await self.initialize(self.config)
 
         # Add the user prompt to the messages
         if messages is not None:
@@ -197,7 +201,7 @@ class OpenAIEngine(BaseEngine):
         Generate data from the OpenAI engine.
         """
         if logits_processor is None:
-            logits_processor = self.get_logits_processor(structure)
+            logits_processor = self.get_logits_processor(structure=structure)
         else:
             self.logits_processor(logits_processor)
         result = await self.generate(prompt, **kwargs)
@@ -234,6 +238,40 @@ class OpenAIEngine(BaseEngine):
             raise ValueError("Unsupported structure type")
 
         return self.logits_processor
+
+    async def generate_embeddings(self, texts: List[str]) -> List[List[float]]:
+        """
+        Generate embeddings for a list of texts using the vLLM API.
+
+        Args:
+            texts (List[str]): A list of texts to generate embeddings for.
+
+        Returns:
+            List[List[float]]: A list of embeddings, where each embedding is a list of floats.
+        """
+        try:
+            response = await self.client.embeddings.create(
+                input=texts,
+                model=self.embedding_model
+            )
+            return [data.embedding for data in response.data]
+        except Exception as e:
+            logging.error(f"Error generating embeddings: {e}")
+            # Return zero embeddings as fallback
+            return [[0.0] * 4096 for _ in texts]
+
+    async def get_embedding(self, text: str) -> List[float]:
+        """
+        Get the embedding for a single text.
+
+        Args:
+            text (str): The text to generate an embedding for.
+
+        Returns:
+            List[float]: The embedding as a list of floats.
+        """
+        embeddings = await self.generate_embeddings([text])
+        return embeddings[0]
 
     @property
     def supported_tasks(self) -> List[str]:

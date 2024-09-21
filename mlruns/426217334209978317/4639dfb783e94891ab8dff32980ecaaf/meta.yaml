@@ -1,0 +1,15 @@
+artifact_uri: file:///teamspace/studios/this_studio/beta/mlruns/426217334209978317/4639dfb783e94891ab8dff32980ecaaf/artifacts
+end_time: 1726920353828
+entry_point_name: ''
+experiment_id: '426217334209978317'
+lifecycle_stage: active
+run_id: 4639dfb783e94891ab8dff32980ecaaf
+run_name: trusting-ram-709
+run_uuid: 4639dfb783e94891ab8dff32980ecaaf
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1726920353276
+status: 3
+tags: []
+user_id: zeus
