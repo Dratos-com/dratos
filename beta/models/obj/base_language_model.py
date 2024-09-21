@@ -95,8 +95,8 @@ class LLM(BaseLanguageModel):
     def __init__(
         self,
         model_name: str = None,
-        engine: BaseEngine = OpenAIEngine(),
-        config=OpenAIEngineConfig,
+        config: OpenAIEngineConfig = OpenAIEngineConfig(),
+        engine: BaseEngine = OpenAIEngine(OpenAIEngineConfig())
     ):
         super().__init__(model_name, engine)
         self.config = config

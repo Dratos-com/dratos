@@ -9,8 +9,8 @@ import json
 import lark
 import pyarrow as pa
 from .base_engine import BaseEngine, BaseEngineConfig
-from beta import Artifact
-from beta import DataObject
+from ....data import Artifact
+from ....data import DataObject
 from outlines.fsm.json_schema import build_regex_from_schema
 from outlines.processors.base_logits_processor import OutlinesLogitsProcessor
 from outlines.processors.structured import JSONLogitsProcessor
@@ -237,7 +237,16 @@ class OpenAIEngine(BaseEngine):
 
     @property
     def supported_tasks(self) -> List[str]:
+        """
+        Get the supported tasks for the OpenAI engine.
+        """
         return ["text-generation", "chat", "structured-generation"]
+    
+    def get_supported_tasks(self) -> List[str]:
+        """
+        Get the supported tasks for the OpenAI engine.
+        """
+        return self.supported_tasks
 
     def get_model_config(self) -> Dict[str, Any]:
         """
