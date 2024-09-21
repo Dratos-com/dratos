@@ -1,6 +1,7 @@
 """
 This module provides an OpenAI engine for generating text using the OpenAI API.
 """
+import logging
 from typing import Any, Coroutine, Dict, List, Union, Optional
 from openai import OpenAI, AsyncOpenAI
 from pydantic import BaseModel
@@ -66,9 +67,12 @@ class OpenAIEngine(BaseEngine):
     ):
         super().__init__(config=config)
         self.config: OpenAIEngineConfig = config
-        self.client: Optional[Union[OpenAI | AsyncOpenAI]] = None
+        self.client: Optional[Union[OpenAI | AsyncOpenAI]] = AsyncOpenAI(
+            api_key=config.get("api_key"),
+            base_url=config.get("base_url", "https://api.openai.com/v1")
+        )
         self.model_name = config.get("model_name", "gpt-4o")
-        self.embedding_model = None
+        self.embedding_model = "text-embedding-ada-002"
 
     def set_logits_processor(self, processor: OutlinesLogitsProcessor) -> None:
         """
@@ -135,7 +139,7 @@ class OpenAIEngine(BaseEngine):
         )
         # Get the first available model for embeddings
         models = await self.client.models.list()
-        self.embedding_model = models.data[0].id
+        self.embedding_model = "text-embedding-ada-002"
 
     async def shutdown(self) -> None:
         """

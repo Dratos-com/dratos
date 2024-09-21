@@ -197,26 +197,28 @@ class Agent:
 
             # Get the DataFrame from the Artifact
             artifact_df = artifact.df
-            
+
             async def vectorize_payload(payload):
                 return await self.model.get_embedding(payload)
 
-            artifact_embedded_df = artifact_df.with_column(
-                "vector",
-                col("payload").apply(
-                    lambda payload: asyncio.run_coroutine_threadsafe(vectorize_payload(payload), asyncio.get_event_loop()).result(),
-                    return_dtype=DataType.embedding(DataType.float32(), size=4096)
-                )
-            )
+            # Collect all payloads
+            payloads = artifact_df.select("payload").to_pandas()["payload"].tolist()
+
+            # Vectorize all payloads asynchronously
+            vectors = await asyncio.gather(*[vectorize_payload(payload) for payload in payloads])
+
+            # Add the vectors to the DataFrame
+            artifact_df = artifact_df.with_column("vector", vectors)
+
             # Check if the vector table exists
             if vector_table_name not in self.lancedb_client.table_names():
                 # Create a new vector table with the 'vector' column
-                self.lancedb_client.create_table(vector_table_name, artifact_embedded_df)
+                self.lancedb_client.create_table(vector_table_name, artifact_df)
                 logging.info(f"Created new vector table '{vector_table_name}' in LanceDB.")
             else:
                 # Append vectors to the existing vector table
                 existing_vector_table = self.lancedb_client.open_table(vector_table_name)
-                existing_vector_table.add(artifact_embedded_df)
+                existing_vector_table.add(artifact_df)
                 logging.info(f"Appended vectors to existing table '{vector_table_name}' in LanceDB.")
         except Exception as e:
             logging.error(f"Failed to store artifact vectors in LanceDB: {e}")
