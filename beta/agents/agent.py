@@ -2,16 +2,16 @@
 from __future__ import annotations
 from typing import Protocol, List, Any, Optional, Union
 from enum import Enum
+from datetime import datetime
+import logging
+from daft import DataFrame, Schema, DataType, lit
+import lancedb
 import numpy as np
 from pydantic import BaseModel, Field
-from ray.serve.handle import DeploymentHandle, DeploymentResponse
-from datetime import datetime
-from daft import DataFrame, Schema
-import logging
-import ray
-from beta.models.obj.base_language_model import LLM
-from beta.models.serve.engines.base_engine import BaseEngine
-from beta.models.serve.engines.openai_engine import OpenAIEngine, OpenAIEngineConfig
+from ray.serve.handle import DeploymentResponse
+from ..models.obj.base_language_model import LLM
+from ..models.serve.engines.base_engine import BaseEngine
+from ..models.serve.engines.openai_engine import OpenAIEngine, OpenAIEngineConfig
 from ..data.obj.result import Result
 
 
@@ -33,11 +33,13 @@ class ToolInterface(Protocol):
     def execute(self, data: Any) -> Result[Any, Exception]:
         ...
 
+
 class Prompt(BaseModel):
     """
     Pydantic model representing a prompt.
     """
     content: str
+
 
 class Message(BaseModel):
     """
@@ -54,17 +56,26 @@ class SchemaWrapper(BaseModel):
     schema: Any
 
     class Config:
+        """
+        Pydantic configuration for the SchemaWrapper class.
+        """
         arbitrary_types_allowed = True
 
     @classmethod
     def __get_validators__(cls):
+        """
+        Get validators for the SchemaWrapper class.
+        """
         yield cls.validate
 
     @classmethod
-    def validate(cls, v):
-        if not isinstance(v, Schema):
+    def validate(cls, value):
+        """
+        Validate the schema.
+        """
+        if not isinstance(value, Schema):
             raise ValueError('Must be a Schema instance')
-        return cls(schema=v)
+        return cls(schema=value)
 
 
 class Metadata(BaseModel):
@@ -75,18 +86,11 @@ class Metadata(BaseModel):
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     provenance: Optional[str] = None
 
-    def validate(self):
-        """
-        Validate the metadata.
-        """
-        # Implementation here
-
     def serialize(self, serializer):
         """
         Serialize the metadata.
         """
         # Implement serialization logic if needed
-        pass
 
 
 class Agent:
@@ -100,19 +104,23 @@ class Agent:
         stt (OpenAIEngine): Instance of the speech-to-text engine.
         tools (List[ToolInterface]): List of tools the agent can utilize.
         metadata (Metadata): Metadata information for the agent.
-        inference_adapter (Optional[InferenceEngine]): Inference engine adapter.
+        engine (BaseEngine): Inference engine.
+        artifacts (List[DataFrame]): List of artifacts.
+        memory (List[DataFrame]): List of memory.
         is_async (bool): Use asynchrony (i.e. for streaming).
     """
-    def __init__(self, 
-                 name: str,
-                 model: LLM = LLM("openai/gpt-4o", engine=OpenAIEngine(config=OpenAIEngineConfig())),
-                 embedding: LLM = LLM("openai/text-embedding-3-large", engine=OpenAIEngine(config=OpenAIEngineConfig())),
-                 stt: LLM = LLM("openai/whisper-1", engine=OpenAIEngine(config=OpenAIEngineConfig())),
-                 tools: Optional[List[ToolInterface]] = None,
-                 metadata: Optional[Metadata] = None,
-                 engine: Optional[BaseEngine] = None,
-                 memory: Optional[List[DataFrame]] = None,
-                 is_async: bool = False):
+    def __init__(
+            self,
+            name: str,
+            model: LLM = LLM("openai/gpt-4o", engine=OpenAIEngine(config=OpenAIEngineConfig())),
+            embedding: LLM = LLM("openai/text-embedding-3-large", engine=OpenAIEngine(config=OpenAIEngineConfig())),
+            stt: LLM = LLM("openai/whisper-1", engine=OpenAIEngine(config=OpenAIEngineConfig())),
+            tools: Optional[List[ToolInterface]] = None,
+            metadata: Optional[Metadata] = None,
+            engine: Optional[BaseEngine] = None,
+            artifacts: Optional[List[DataFrame]] = None,
+            memory: Optional[List[DataFrame]] = None,
+            is_async: bool = False):
         self.name = name
         self.model = model
         self.embedding = embedding
@@ -123,6 +131,10 @@ class Agent:
         self.is_async = is_async
         self.status = AgentStatus.INIT
         self.memory = memory
+        self.artifacts = artifacts
+
+        self.lancedb_client = lancedb.connect("lancedb://localhost:5432/lancedb")
+        logging.info(f"Lancedb client connected: {self.lancedb_client}")
 
     async def process(self, prompt: Optional[Prompt | str] = None,
                       messages: Optional[List[Message]] = None,
@@ -154,6 +166,12 @@ class Agent:
         
         if messages is None:
             messages = [{"role": "system", "content": "You are a helpful assistant"}, {"role": "user", "content": prompt}]
+        
+        if self.artifacts:
+            for artifact in self.artifacts:
+                # store in lancedb
+                self.store_in_lancedb(artifact)
+
         llm_response: DeploymentResponse = await self.model.generate(prompt=prompt, messages=messages)
         logging.info("Awaiting model response")
         logging.info(f"Model response received: {llm_response}")
@@ -161,6 +179,40 @@ class Agent:
         self.status = AgentStatus.IDLE
         logging.info(f"Agent status set to {self.status}")
         return llm_response
+
+    def store_in_lancedb(self, artifact: DataFrame):
+        """
+        Stores the vectors derived from the artifact DataFrame into LanceDB's vector storage.
+
+        Args:
+            artifact (DataFrame): The artifact DataFrame to process and store vectors from.
+        """
+        vector_table_name = "artifacts_vectors"
+        try:
+            # Example: Assuming 'revenue' is a column to be vectorized
+            # Convert Daft DataFrame to Pandas DataFrame
+            artifact_embedded_df = artifact.with_column("vector", lit(DataType.embedding(DataType.float32, size=1408)))
+            pa_table = artifact_embedded_df.collect().to_arrow()
+
+            # Perform vectorization (You can use embeddings or any vectorization method)
+            # For demonstration, we'll use revenue as a simple vector
+            vectors = pa_table[['revenue']].values.tolist()  # Replace with actual vectorization
+
+            # Add vectors to the DataFrame
+            pa_table['vector'] = vectors
+
+            # Check if the vector table exists
+            if vector_table_name not in self.lancedb_client.table_names():
+                # Create a new vector table with the 'vector' column
+                self.lancedb_client.create_table(vector_table_name, pa_table[['vector']])
+                logging.info(f"Created new vector table '{vector_table_name}' in LanceDB.")
+            else:
+                # Append vectors to the existing vector table
+                existing_vector_table = self.lancedb_client.open_table(vector_table_name)
+                existing_vector_table.add(pa_table)
+                logging.info(f"Appended vectors to existing vector table '{vector_table_name}' in LanceDB.")
+        except Exception as e:
+            logging.error(f"Failed to store artifact vectors in LanceDB: {e}")
 
     def execute_pipeline(self, input_data: Any) -> Result[Any, Exception]:
         """
@@ -183,7 +235,7 @@ class Agent:
 
         if self.engine and not result.is_error:
             try:
-                inference_result = self.engine.run_inference(result.value)
+                inference_result = self.engine.generate(result.value)
                 result = Result.Ok(inference_result)
             except Exception as e:
                 result = Result.Error(e)
@@ -204,8 +256,7 @@ class Agent:
         inferred_action = await action_response
 
         # Clean up the response to match one of the available actions
-        inferred_action = inferred_action.strip().lower()
-        
+        inferred_action = inferred_action.strip().lower()        
         if inferred_action not in [action.lower() for action in actions]:
             # If the inferred action doesn't match any available action, default to the first action
             print(f"Inferred action '{inferred_action}' not found in available actions. Defaulting to '{actions[0]}'.")

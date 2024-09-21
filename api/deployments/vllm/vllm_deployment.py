@@ -11,6 +11,7 @@ from vllm.entrypoints.openai.protocol import (
     ErrorResponse,
 )
 
+
 app = FastAPI()
 
 

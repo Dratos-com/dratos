@@ -1,7 +1,7 @@
 from .openai_engine import OpenAIEngine, OpenAIEngineConfig
-from .vllm_engine import VLLMEngine, OpenAIEngineConfig
+from .vllm_engine import VLLMEngine
 from .openrouter_engine import OpenRouterEngine
-from .base_engine import BaseEngine
+from .base_engine import BaseEngine, BaseEngineConfig
 from .transformers_engine import TransformersEngine
 
 __all__ = [
@@ -10,5 +10,6 @@ __all__ = [
     "VLLMEngine",
     "OpenRouterEngine",
     "BaseEngine",
+    "BaseEngineConfig",
     "TransformersEngine",
 ]

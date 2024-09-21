@@ -1,21 +1,22 @@
+"""
+This module defines the base language model class and related classes.
+"""
 from __future__ import annotations
-
+from abc import ABC, abstractmethod
 import typing
 
 if typing.TYPE_CHECKING:
     pass
-import os
-from typing import List, Optional
-from outlines import models, generate
-import ray
-from ray.actor import ActorHandle
-import mlflow  # Add this import
-from abc import ABC, abstractmethod
-from beta.models.serve.engines import BaseEngine, OpenAIEngine, OpenAIEngineConfig
+from typing import List
+from ..serve.engines.base_engine import BaseEngine
+from ..serve.engines.openai_engine import OpenAIEngine, OpenAIEngineConfig
 
 
 # Define the base input class
 class Input(ABC):
+    """
+    Base class for input objects.
+    """
     @abstractmethod
     def to_text(self) -> str:
         pass
@@ -23,6 +24,9 @@ class Input(ABC):
 
 # Define a text input subclass
 class TextInput(Input):
+    """
+    Input class for text data.
+    """
     def __init__(self, text: str):
         self.text = text
 
@@ -32,6 +36,9 @@ class TextInput(Input):
 
 # Define an image input subclass (example)
 class ImageInput(Input):
+    """
+    Input class for image data.
+    """
     def __init__(self, image_path: str):
         self.image_path = image_path
 

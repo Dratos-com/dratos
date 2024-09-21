@@ -1,3 +1,5 @@
+"""Base classes for all engines."""
+
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, List, Union, TYPE_CHECKING
 import pyarrow as pa
@@ -6,67 +8,64 @@ from outlines.processors import OutlinesLogitsProcessor
 if TYPE_CHECKING:
     from .openai_engine import OpenAIEngineConfig
 
+
 class BaseEngineConfig(ABC):
-    @abstractmethod
-    def update(self, new_config: Dict[str, Any]) -> None:
-        """Update the engine configuration."""
-        pass
+    """Base class for all engine configs."""
+    api_key: str
+    base_url: str
 
 
 class BaseEngine(ABC):
+    """Base class for all engines."""
     def __init__(
         self,
         config: BaseEngineConfig,
     ):
-        self.model_name = ""
-        self.config = config or "OpenAIEngineConfig()"  # Use string as default
+        self.config = config
         self.logits_processor: Optional[OutlinesLogitsProcessor] = None
         self._is_initialized = False
 
     @abstractmethod
     async def initialize(self, config: BaseEngineConfig) -> None:
         """Initialize the model and any necessary resources."""
-        pass
+        
+
+    @abstractmethod
+    async def shutdown(self) -> None:
+        """Shutdown the engine and free resources."""
+        
 
     @abstractmethod
     async def generate(self, prompt: Union[str, List[str]], **kwargs) -> Any:
         """Generate text based on the input prompt."""
-        pass
+        
 
     @abstractmethod
     async def generate_structured(
         self,
         prompt: Union[str, List[str]],
         structure: Union[str, Dict, pa.Schema],
+        grammar: Optional[str] = None,
         **kwargs,
     ) -> Any:
         """Generate structured output based on the given prompt and structure."""
-        pass
-
-    @property
+        
+    
     @abstractmethod
-    def supported_tasks(self) -> List[str]:
+    def get_supported_tasks(self) -> List[str]:
         """Return a list of tasks supported by this engine."""
-        pass
-
+    
     @abstractmethod
-    def get_model_config(self) -> Dict[str, Any]:
-        """Return the configuration of the loaded model."""
-        pass
-
-    @abstractmethod
-    async def shutdown(self) -> None:
-        """Shutdown the engine and free resources."""
-        pass
-
-    def update_config(self, new_config: Dict[str, Any]) -> None:
-        """Update the engine configuration."""
-        self.config.update(new_config)
+    def get_supported_models(self) -> List[str]:
+        """Return a list of tasks supported by this engine."""
+        
 
     def set_logits_processor(self, processor: OutlinesLogitsProcessor) -> None:
         """Set the logits processor for structured generation."""
         self.logits_processor = processor
 
-    @property
-    def is_initialized(self) -> bool:
-        return self._is_initialized
+
+__all__ = [
+    "BaseEngine",
+    "BaseEngineConfig",
+]
