@@ -15,12 +15,16 @@ import numpy as np
 from pydantic import BaseModel, Field
 import pyarrow as pa
 from ray.serve.handle import DeploymentResponse
+import uuid
+import os
 
 from ..data.obj.artifacts.artifact_obj import Artifact
 from ..models.obj.base_language_model import LLM
 from ..models.serve.engines.base_engine import BaseEngine
 from ..models.serve.engines.openai_engine import OpenAIEngine, OpenAIEngineConfig
 from ..data.obj.result import Result
+from ..data.obj.memory import Memory, MemoryStore
+from ..tools.git_api import GitAPI
 
 
 class AgentStatus(str, Enum):
@@ -142,6 +146,8 @@ class Agent:
         engine: Optional[BaseEngine] = None,
         artifacts: Optional[List[DataFrame]] = None,
         memory: Optional[List[DataFrame]] = None,
+        memory_db_uri: Optional[str] = None,
+        git_repo_path: Optional[str] = None,
         is_async: bool = False,
     ):
         self.name = name
@@ -156,15 +162,19 @@ class Agent:
         self.memory = memory
         self.artifacts = artifacts
 
-        self.lancedb_client = lancedb.connect("~/.lancedb")
+        self.lancedb_client = lancedb.connect(memory_db_uri)
         logging.info(f"Lancedb client connected: {self.lancedb_client}")
 
         # Initialize the embedding function
         self.embedding_func = (
             get_registry()
             .get("sentence-transformers")
-            .create(name="BAAI/bge-small-en-v1.5", device="cuda")
+            .create(name="BAAI/bge-small-en-v1.5")
         )
+        self.memory_store = MemoryStore(memory_db_uri)
+        self.git_api = GitAPI(git_repo_path)
+
+
 
     async def process(
         self,
@@ -213,7 +223,7 @@ class Agent:
                 await self.store_in_lancedb(artifact)
 
         llm_response: DeploymentResponse = await self.model.generate(
-            prompt=prompt, messages=messages
+            input=prompt, messages=messages
         )
         logging.info("Awaiting model response")
         logging.info(f"Model response received: {llm_response}")
@@ -230,9 +240,7 @@ class Agent:
             artifact_df = artifact.df
             # gzip unzip the payload column
             import gzip
-            import io
-
-            @daft.udf(return_dtype=DataType.string())
+            
             def unzip_payload(zipped_payload: DataType.string):
                 try:
                     return gzip.decompress(zipped_payload)
@@ -241,10 +249,8 @@ class Agent:
                     logging.warning(f"Failed to unzip payload: {e}")
                     return zipped_payload  # Return original payload if unzipping fails
 
-            unzip_payloads = artifact_df.with_column(
-                "payload", unzip_payload(artifact_df.select("payload"))
-            )
-
+            unzip_payloads = unzip_payload(artifact_df.select("payload"))
+            
             @daft.udf(
                 return_dtype=DataType.embedding(
                     DataType.float32(), size=self.embedding_func.dimension
@@ -289,7 +295,33 @@ class Agent:
             logging.error(f"Failed to store artifact vectors in LanceDB: {e}")
             raise
 
-    def execute_pipeline(self, input_data: Any) -> Result[Any, Exception]:
+    async def add_memory(self, content: str) -> str:
+        vector = await self.model.engine.get_embedding(content)
+        memory = Memory(id=str(uuid.uuid4()), content=content, vector=vector)
+        self.memory_store.add_memory(memory)
+        return self.git_api.commit_memory(f"Added memory: {memory.id}")
+
+    async def search_memories(self, query: str, limit: int = 5) -> List[Memory]:
+        query_vector = await self.model.engine.get_embedding(query)
+        return self.memory_store.search_memories(query_vector, limit)
+
+    def create_memory_branch(self, branch_name: str):
+        self.git_api.create_branch(branch_name)
+
+    def switch_memory_branch(self, branch_name: str):
+        self.git_api.switch_branch(branch_name)
+
+    def time_travel(self, commit_hash: str):
+        self.git_api.checkout_commit(commit_hash)
+        # Reload memories from the current state
+        self._reload_memories()
+
+    def _reload_memories(self):
+        # This method should reload memories from the LanceDB table
+        # based on the current Git state
+        self.memory = self.memory_store.get_all_memories()
+
+    async def execute_pipeline(self, input_data: Any) -> Result[Any, Exception]:
         """
         Executes the agent's processing pipeline.
 
@@ -314,6 +346,9 @@ class Agent:
                 result = Result.Ok(inference_result)
             except Exception as e:
                 result = Result.Error(e)
+
+        # Add memory of the execution
+        await self.add_memory(f"Executed pipeline with input: {input_data}")
 
         return result
 
@@ -349,6 +384,10 @@ class Agent:
             )
 
         print(f"Inferred action: {inferred_action}")
+
+        # Add memory of the inferred action
+        await self.add_memory(f"Inferred action: {inferred_action} for prompt: {prompt.content}")
+
         return inferred_action
 
     def choose_tool(self, task: str, tools: List[ToolInterface]) -> ToolInterface:

@@ -13,7 +13,8 @@ class GitAPI:
     def commit_memory(self, message=None):
         self.repo.git.add(A=True)
         commit_message = message or f"Memory snapshot at {datetime.utcnow().isoformat()}"
-        self.repo.index.commit(commit_message)
+        commit = self.repo.index.commit(commit_message)
+        return commit.hexsha
 
     def create_branch(self, branch_name):
         self.repo.git.branch(branch_name)

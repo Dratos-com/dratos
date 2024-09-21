@@ -36,7 +36,7 @@ class BaseEngine(ABC):
         
 
     @abstractmethod
-    async def generate(self, prompt: Union[str, List[str]], **kwargs) -> Any:
+    async def generate(self, prompt: Union[str, List[str]], messages: List[Dict[str, str]] = None, **kwargs) -> Any:
         """Generate text based on the input prompt."""
         
 
@@ -46,6 +46,7 @@ class BaseEngine(ABC):
         prompt: Union[str, List[str]],
         structure: Union[str, Dict, pa.Schema],
         grammar: Optional[str] = None,
+        messages: List[Dict[str, str]] = None,
         **kwargs,
     ) -> Any:
         """Generate structured output based on the given prompt and structure."""
@@ -63,6 +64,11 @@ class BaseEngine(ABC):
     def set_logits_processor(self, processor: OutlinesLogitsProcessor) -> None:
         """Set the logits processor for structured generation."""
         self.logits_processor = processor
+
+    @abstractmethod
+    async def get_embedding(self, text: str) -> List[float]:
+        """Get the embedding for a single text."""
+        pass
 
 
 __all__ = [
