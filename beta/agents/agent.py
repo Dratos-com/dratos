@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 import asyncio
-from typing import Protocol, List, Any, Optional, Union
+from typing import Protocol, List, Any, Optional, Union, Dict
 from enum import Enum
 from datetime import datetime
 import logging
@@ -396,6 +396,29 @@ class Agent:
         """
         # TODO: Implement tool selection logic
         return next((tool for tool in tools if tool.can_handle(task)), None)
+
+    async def get_conversation_history(self, conversation_id: str) -> List[Dict]:
+        memories = self.memory_store.get_all_memories()
+        return [
+            {"id": m.id, "content": m.content, "timestamp": m.timestamp}
+            for m in memories if m.conversation_id == conversation_id
+        ]
+
+    async def get_conversation_branches(self, conversation_id: str) -> List[str]:
+        return self.git_api.get_branches()
+
+    async def switch_conversation_branch(self, branch_name: str):
+        self.switch_memory_branch(branch_name)
+        return await self.get_conversation_history(branch_name)
+
+    async def create_conversation_branch(self, branch_name: str):
+        self.create_memory_branch(branch_name)
+        return await self.get_conversation_history(branch_name)
+
+    async def merge_conversation_branches(self, source_branch: str, target_branch: str):
+        self.git_api.merge_branches(source_branch, target_branch)
+        self._reload_memories()
+        return await self.get_conversation_history(target_branch)
 
 
 __all__ = ["Agent", "AgentStatus", "ToolInterface", "Prompt", "Message", "Metadata"]

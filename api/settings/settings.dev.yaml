@@ -1,0 +1,14 @@
+# Dynaconf Setting
+settings:
+  storage:     
+    local:
+      local_path: "/teamspace/studios/this_studio/beta/api/data"
+  ray:
+    address: "localhost:6380"
+dev:
+  config:
+    clients:
+      ray:
+        address: "localhost:6380"
+        local_mode: false
+        # Add other Ray-specific configurations here

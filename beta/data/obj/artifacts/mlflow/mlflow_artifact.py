@@ -2,7 +2,7 @@ from typing import List, Optional, Dict, Any
 from beta.data.obj.artifacts import Artifact
 import mlflow
 from mlflow.tracking import MlflowClient
-from api.config.context.clients.mlflow import MlflowConfig
+from api.config.context.client_factory import MlflowConfig
 
 
 class MlflowArtifactBridge:

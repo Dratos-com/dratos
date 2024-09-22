@@ -18,7 +18,7 @@ from dynaconf import Dynaconf
 from api.config.context.storage_context import StorageContext
 from beta.data.obj.base.data_object import DataObject
 from api.config.context.client_factory import ClientFactory
-from api.config.context.clients.mlflow import MlflowConfig
+from api.config.context.client_factory import MlflowConfig
 from beta.data.obj.artifacts.mlflow.mlflow_artifact import MlflowArtifactBridge
 
 # Example (see settings.foo.yaml for full list of options)
@@ -27,20 +27,29 @@ from beta.data.obj.artifacts.mlflow.mlflow_artifact import MlflowArtifactBridge
 class Config(DataObject):
     _instance = None
 
+    @property
+    def get_storage(self):
+        return StorageContext(self.settings)
+    
+    @property
+    def get_settings(self):
+        return Dynaconf(
+            settings_files=[
+                "/teamspace/studios/this_studio/beta/api/settings/settings.dev.yaml"
+            ],
+            load_dotenv=False
+        )
     def __init__(self, settings: Dynaconf):
         self.settings = Dynaconf(
             settings_files=[
-                "settings/settings.dev.yaml",
-                "settings/settings.stg.yaml",
+                "/teamspace/studios/this_studio/beta/api/settings/settings.dev.yaml"
             ],
-            environments=True,  # Enable environment support
-            envvar_prefix=False,  # Prefix for environment variables
-            load_dotenv=True,  # Load variables from a .env file
+            load_dotenv=False
         )
 
     def load_config(self) -> Config:
         self.storage = StorageContext(self.settings)
-
+        return self
     def get_lancedb(
         self,
         storage_context: Optional[StorageContext] = None,
@@ -60,35 +69,50 @@ class Config(DataObject):
         storage_context: Optional[StorageContext] = None,
         settings: Optional[Dynaconf] = None,
     ):
-        return ClientFactory(storage_context, settings).create_daft_client()
+        return ClientFactory(storage_context, settings).get_daft()
 
     def get_openai(
         self,
         storage_context: Optional[StorageContext] = None,
         settings: Optional[Dynaconf] = None,
     ):
-        return ClientFactory(storage_context, settings).create_opeanai_client()
+        return ClientFactory(storage_context, settings).get_openai()
 
     def get_mlflow(
         self,
         storage_context: Optional[StorageContext] = None,
         settings: Optional[Dynaconf] = None,
     ):
-        return ClientFactory(storage_context, settings).create_opeanai_client()
+        return ClientFactory(storage_context, settings).get_mlflow()
 
     def get_wandb(
         self,
         storage_context: Optional[StorageContext] = None,
         settings: Optional[Dynaconf] = None,
     ):
-        return ClientFactory(storage_context, settings).create_wandb_client()
+        return ClientFactory(storage_context, settings).get_wandb()
 
     def get_triton(
         self,
         storage_context: Optional[StorageContext] = None,
         settings: Optional[Dynaconf] = None,
     ):
-        return ClientFactory(storage_context, settings).create_triton_client()
+        return ClientFactory(storage_context, settings).get_triton()
+
+    def get_instance():
+        if Config._instance is None:
+            Config._instance = Config(settings=Dynaconf(settings_files=["/teamspace/studios/this_studio/beta/api/settings/settings.dev.yaml"]))
+        return Config._instance
 
 
 config = Config.get_instance()
+
+
+class LanceDBContext(StorageContext):
+    def __init__(self, settings: Dynaconf):
+        super().__init__(settings)
+        self.settings = settings
+
+    def get_lancedb(self):
+        return ClientFactory(self, self.settings).create_lancedb()
+

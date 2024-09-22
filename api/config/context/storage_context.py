@@ -1,15 +1,16 @@
 from dynaconf import Dynaconf
-from pydantic import BaseSettings
+from pydantic import ConfigDict
+from pydantic_settings import BaseSettings
 from typing import Optional
+import os
 
 
 class LocalStorageContext(BaseSettings):
-    local_path: Optional[str] = "~/lancedb"
+    # allow pydantic extra fields
+    model_config = ConfigDict(extra="allow")
+    
+    local_path: Optional[str] = None
     anonymous: Optional[bool] = False
-
-    class Config:
-        env_prefix = "DRATOS_STORAGE_LOCAL_"
-        env_file = ".env"
 
 
 class S3StorageContext(BaseSettings):
@@ -107,6 +108,9 @@ class StorageContext:
         elif settings.get("storage.azure.storage_account"):
             self.azure = AzureStorageContext(**(settings.get("storage.azure") or {}))
         elif settings.get("storage.local.local_path"):
-            self.local = LocalStorageContext(**(settings.get("storage.local") or {}))
+            self.local = LocalStorageContext(local_path=settings.get("storage.local.local_path"))
         else:
-            raise ValueError("No valid StorageContext found.")
+            # Default to local storage if no other storage is configured
+            default_local_path = os.path.expanduser("~/.lancedb")
+            self.local = LocalStorageContext(local_path=default_local_path)
+

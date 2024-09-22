@@ -1,9 +1,10 @@
 'use client'
 
-import React, { useRef, useState, useCallback } from 'react'
+import React, { useRef, useState, useCallback, useEffect } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { OrbitControls, Text, Html } from '@react-three/drei'
+import { Text, Html } from '@react-three/drei'
 import * as THREE from 'three'
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
 
 type ConversationNode = {
   id: string
@@ -125,29 +126,62 @@ const ConversationTree: React.FC<{ root: ConversationNode; onNodeClick: (node: C
   return renderNode(root)
 }
 
-const MementoFractals: React.FC = () => {
-  const [selectedNode, setSelectedNode] = useState<ConversationNode | null>(null)
+const MementoFractals: React.FC<{ conversationHistory: ConversationNode }> = ({ conversationHistory }) => {
+  const mountRef = useRef<HTMLDivElement>(null);
 
-  const handleNodeClick = (node: ConversationNode) => {
-    setSelectedNode(node)
-  }
+  useEffect(() => {
+    if (!mountRef.current) return;
 
-  return (
-    <div className="w-full h-screen">
-      <Canvas camera={{ position: [0, 0, 20], fov: 75 }}>
-        <ambientLight intensity={0.5} />
-        <pointLight position={[10, 10, 10]} />
-        <ConversationTree root={mockConversation} onNodeClick={handleNodeClick} />
-        <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} />
-      </Canvas>
-      {selectedNode && (
-        <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-75 text-white p-4">
-          <h2 className="text-xl font-bold mb-2">Selected Node: {selectedNode.id}</h2>
-          <p>{selectedNode.content}</p>
-        </div>
-      )}
-    </div>
-  )
-}
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer();
+
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    mountRef.current.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+
+    const createNode = (node: ConversationNode, position: THREE.Vector3) => {
+      const geometry = new THREE.SphereGeometry(0.1, 32, 32);
+      const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+      const sphere = new THREE.Mesh(geometry, material);
+      sphere.position.copy(position);
+      scene.add(sphere);
+
+      node.children.forEach((child, index) => {
+        const childPosition = new THREE.Vector3(
+          position.x + Math.cos(index * Math.PI * 2 / node.children.length),
+          position.y + 1,
+          position.z + Math.sin(index * Math.PI * 2 / node.children.length)
+        );
+        createNode(child, childPosition);
+
+        const line = new THREE.Line(
+          new THREE.BufferGeometry().setFromPoints([position, childPosition]),
+          new THREE.LineBasicMaterial({ color: 0xffffff })
+        );
+        scene.add(line);
+      });
+    };
+
+    createNode(conversationHistory, new THREE.Vector3(0, 0, 0));
+
+    camera.position.z = 5;
+
+    const animate = () => {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    };
+
+    animate();
+
+    return () => {
+      mountRef.current?.removeChild(renderer.domElement);
+    };
+  }, [conversationHistory]);
+
+  return <div ref={mountRef} />;
+};
 
 export default MementoFractals

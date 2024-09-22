@@ -9,7 +9,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Dict, List
 from pydantic import BaseModel
 import uuid
-from maf.core.session_manager import (
+from beta.core.session_manager import (
     SessionManager,
 )  # Assume this exists in your core module
 

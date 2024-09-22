@@ -1,4 +1,5 @@
-from pydantic import BaseSettings, HttpUrl
+from pydantic import HttpUrl
+from pydantic_settings import BaseSettings
 from typing import Optional, Dict, Any
 from dynaconf import Dynaconf
 from urllib.parse import urlparse
@@ -7,7 +8,9 @@ from api.config.context.storage_context import StorageContext
 
 
 class MlflowS3Config:
-    s3_endpoint
+    s3_endpoint_url: Optional[HttpUrl] = None
+    aws_access_key_id: Optional[str] = None
+    aws_secret_access_key: Optional[str] = None
 
 
 class MlflowConfig(BaseSettings):
@@ -48,7 +51,7 @@ class MlflowConfig(BaseSettings):
         super().__init__()
 
         # Use Dynaconf to get settings, allowing for environment variable overrides
-        self.tracking_uri = settings.
+        self.tracking_uri = settings.get("MLFLOW_TRACKING_URI")
         self.registry_uri = settings.get("MLFLOW_REGISTRY_URI")
         self.artifact_location = settings.get("MLFLOW_ARTIFACT_LOCATION")
 

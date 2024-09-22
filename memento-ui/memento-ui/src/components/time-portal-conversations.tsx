@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { motion } from 'framer-motion'
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -42,88 +43,72 @@ type Conversation = {
   forks: ForkEntry[]
 }
 
-const mockConversation: Conversation = {
-  id: '1',
-  title: 'The Impact of AI on Job Markets',
-  commits: [
-    {
-      id: 'c1',
-      message: 'Initial conversation start',
-      author: 'Alice',
-      timestamp: '2023-06-01 10:00',
-      changes: {
-        added: ['AI will create new job opportunities in tech sectors.'],
-        removed: []
-      }
-    },
-    {
-      id: 'c2',
-      message: 'Added counterpoint',
-      author: 'Bob',
-      timestamp: '2023-06-01 11:30',
-      changes: {
-        added: ['However, AI might also lead to job displacement in certain industries.'],
-        removed: []
-      }
-    },
-    {
-      id: 'c3',
-      message: 'Expanded on AI job creation',
-      author: 'Charlie',
-      timestamp: '2023-06-01 14:15',
-      changes: {
-        added: ['AI will likely create jobs in data analysis, machine learning engineering, and AI ethics.'],
-        removed: []
-      }
-    },
-    {
-      id: 'c4',
-      message: 'Added statistics',
-      author: 'David',
-      timestamp: '2023-06-02 09:45',
-      changes: {
-        added: ['According to a recent study, AI could automate up to 30% of work globally by 2030.'],
-        removed: []
-      }
-    },
-    {
-      id: 'c5',
-      message: 'Discussed reskilling',
-      author: 'Eve',
-      timestamp: '2023-06-02 13:20',
-      changes: {
-        added: ['To adapt to AI-driven changes, workforce reskilling and lifelong learning will be crucial.'],
-        removed: ['AI will create new job opportunities in tech sectors.']
-      }
-    }
-  ],
-  branches: [
-    { id: 'b1', name: 'AI in Healthcare', popularity: 95 },
-    { id: 'b2', name: 'AI Ethics', popularity: 88 },
-    { id: 'b3', name: 'AI and Education', popularity: 82 },
-  ],
-  forks: [
-    { id: 'f1', title: 'AI\'s Impact on Creative Industries', author: 'Frank', popularity: 76, comments: 42 },
-    { id: 'f2', title: 'AI and the Future of Remote Work', author: 'Grace', popularity: 68, comments: 35 },
-    { id: 'f3', title: 'AI in Developing Economies', author: 'Henry', popularity: 72, comments: 39 },
-  ]
+interface TimePortalConversationsProps {
+  conversationId: string;
+  conversation: {
+    commits: any[];
+    branches: any[];
+    forks: any[];
+  };
+  currentCommitIndex: number;
 }
 
-export function TimePortalConversations() {
-  const [currentCommitIndex, setCurrentCommitIndex] = useState(mockConversation.commits.length - 1)
-  const currentCommit = mockConversation.commits[currentCommitIndex]
+export const TimePortalConversations: React.FC<TimePortalConversationsProps> = ({ conversationId, conversation, currentCommitIndex }) => {
+  const [conversationHistory, setConversationHistory] = useState([]);
+  const [branches, setBranches] = useState([]);
+  const [currentBranch, setCurrentBranch] = useState('main');
+  const [newBranchName, setNewBranchName] = useState('');
+
+  const fetchConversationHistory = async (conversationId: string) => {
+    const response = await axios.get(`/api/conversation/${conversationId}/history`);
+    setConversationHistory(response.data);
+  };
+
+  const fetchBranches = async (conversationId: string) => {
+    const response = await axios.get(`/api/conversation/${conversationId}/branches`);
+    setBranches(response.data);
+  };
+
+  const createBranch = async (conversationId: string, branchName: string) => {
+    await axios.post(`/api/conversation/${conversationId}/branch`, { branch_name: branchName });
+    fetchBranches(conversationId);
+  };
+
+  const switchBranch = async (conversationId: string, branchName: string) => {
+    const response = await axios.post(`/api/conversation/${conversationId}/switch-branch`, { branch_name: branchName });
+    setConversationHistory(response.data);
+    setCurrentBranch(branchName);
+  };
+
+  const mergeBranches = async (conversationId: string, sourceBranch: string, targetBranch: string) => {
+    const response = await axios.post(`/api/conversation/${conversationId}/merge-branches`, {
+      source_branch: sourceBranch,
+      target_branch: targetBranch
+    });
+    setConversationHistory(response.data);
+    fetchBranches(conversationId);
+  };
 
   const handleTimeTravel = (direction: 'back' | 'forward') => {
-    if (direction === 'back' && currentCommitIndex > 0) {
-      setCurrentCommitIndex(currentCommitIndex - 1)
-    } else if (direction === 'forward' && currentCommitIndex < mockConversation.commits.length - 1) {
-      setCurrentCommitIndex(currentCommitIndex + 1)
-    }
+    // Implement time travel logic here
+    console.log('Time travel:', direction);
+    setCurrentCommitIndex(direction === 'back' ? currentCommitIndex - 1 : currentCommitIndex + 1);
+    console.log('Current commit index:', currentCommitIndex);
+    
+  };
+
+  useEffect(() => {
+    fetchConversationHistory(conversationId);
+    fetchBranches(conversationId);
+  }, [conversationId]); // Add conversationId to the dependency array
+
+  if (!conversation?.commits) {
+    return null; // or some loading/error state
   }
 
   return (
     <div className="container mx-auto p-4 max-w-6xl">
-      <h1 className="text-3xl font-bold mb-6 text-center">{mockConversation.title}</h1>
+      <h1 className="text-3xl font-bold mb-6 text-center">Time Portal Conversations</h1>
       <div className="grid grid-cols-3 gap-4 mb-8">
         <div className="col-span-2">
           <div className="flex justify-center items-center mb-4 space-x-4">
@@ -139,19 +124,19 @@ export function TimePortalConversations() {
               <CardHeader className="text-center">
                 <CardTitle>Time Portal</CardTitle>
                 <CardDescription>
-                  Commit {currentCommitIndex + 1} of {mockConversation.commits.length}
+                  Commit {currentCommitIndex + 1} of {conversation.commits.length}
                 </CardDescription>
               </CardHeader>
               <CardContent className="text-center">
                 <Clock className="h-16 w-16 mx-auto mb-2" />
-                <p className="font-semibold">{currentCommit.timestamp}</p>
+                <p className="font-semibold">{conversation.commits[currentCommitIndex].timestamp}</p>
               </CardContent>
             </Card>
             <Button
               variant="outline"
               size="icon"
               onClick={() => handleTimeTravel('forward')}
-              disabled={currentCommitIndex === mockConversation.commits.length - 1}
+              disabled={currentCommitIndex === conversation.commits.length - 1}
             >
               <ArrowRight className="h-4 w-4" />
             </Button>
@@ -159,21 +144,21 @@ export function TimePortalConversations() {
           <Card className="mb-4">
             <CardHeader>
               <CardTitle>Current Commit</CardTitle>
-              <CardDescription>{currentCommit.message}</CardDescription>
+              <CardDescription>{conversation.commits[currentCommitIndex].message}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex items-center space-x-2 mb-4">
                 <Avatar>
-                  <AvatarImage src={`https://api.dicebear.com/6.x/initials/svg?seed=${currentCommit.author}`} />
-                  <AvatarFallback>{currentCommit.author[0]}</AvatarFallback>
+                  <AvatarImage src={`https://api.dicebear.com/6.x/initials/svg?seed=${conversation.commits[currentCommitIndex].author}`} />
+                  <AvatarFallback>{conversation.commits[currentCommitIndex].author[0]}</AvatarFallback>
                 </Avatar>
                 <div>
-                  <p className="font-semibold">{currentCommit.author}</p>
-                  <p className="text-sm text-muted-foreground">{currentCommit.timestamp}</p>
+                  <p className="font-semibold">{conversation.commits[currentCommitIndex].author}</p>
+                  <p className="text-sm text-muted-foreground">{conversation.commits[currentCommitIndex].timestamp}</p>
                 </div>
               </div>
               <div className="space-y-2">
-                {currentCommit.changes.added.map((change, index) => (
+                {conversation.commits[currentCommitIndex].changes.added.map((change, index) => (
                   <motion.div
                     key={`added-${index}`}
                     initial={{ opacity: 0, x: -20 }}
@@ -184,7 +169,7 @@ export function TimePortalConversations() {
                     <span className="text-green-800 dark:text-green-200">+ {change}</span>
                   </motion.div>
                 ))}
-                {currentCommit.changes.removed.map((change, index) => (
+                {conversation.commits[currentCommitIndex].changes.removed.map((change, index) => (
                   <motion.div
                     key={`removed-${index}`}
                     initial={{ opacity: 0, x: -20 }}
@@ -204,7 +189,7 @@ export function TimePortalConversations() {
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-2">
-                {mockConversation.branches.map((branch) => (
+                {conversation.branches.map((branch) => (
                   <Button key={branch.id} variant="outline" className="flex items-center space-x-2">
                     <GitBranch className="h-4 w-4" />
                     <span>{branch.name}</span>
@@ -243,7 +228,7 @@ export function TimePortalConversations() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {mockConversation.commits.map((commit, index) => (
+              {conversation.commits.map((commit, index) => (
                 <TableRow key={commit.id} className={index === currentCommitIndex ? "bg-accent" : ""}>
                   <TableCell>{index + 1}</TableCell>
                   <TableCell>{commit.author}</TableCell>
@@ -270,7 +255,7 @@ export function TimePortalConversations() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {mockConversation.forks.map((fork) => (
+              {conversation.forks.map((fork) => (
                 <TableRow key={fork.id}>
                   <TableCell>{fork.title}</TableCell>
                   <TableCell>{fork.author}</TableCell>
