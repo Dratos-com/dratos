@@ -12,7 +12,7 @@ from api.v1.conversation import router as conversation_router  # Update this lin
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3002"],
+    allow_origins=["http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -24,9 +24,11 @@ config = Config.get_instance().load_config()
 ray = config.get_ray(storage_context=config.get_storage, settings=config.get_settings)
 daft = config.get_daft(storage_context=config.get_storage, settings=config.get_settings)
 
+
 @app.get("/")
 async def root():
     return {"message": "Welcome to the Multi-Agent Framework API"}
+
 
 # Include the conversation router with the correct prefix
 app.include_router(conversation_router, prefix="/api/v1")

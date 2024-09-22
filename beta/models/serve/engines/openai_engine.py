@@ -1,6 +1,7 @@
 """
 This module provides an OpenAI engine for generating text using the OpenAI API.
 """
+import os
 import logging
 from typing import Any, Coroutine, Dict, List, Union, Optional
 from openai import OpenAI, AsyncOpenAI
@@ -68,7 +69,7 @@ class OpenAIEngine(BaseEngine):
         super().__init__(config=config)
         self.config: OpenAIEngineConfig = config
         self.client: Optional[Union[OpenAI | AsyncOpenAI]] = AsyncOpenAI(
-            api_key=config.get("api_key"),
+            api_key=config.get("api_key", os.environ.get("OPENAI_API_KEY")),
             base_url=config.get("base_url", "https://api.openai.com/v1")
         )
         self.model_name = config.get("model_name", "gpt-4o")

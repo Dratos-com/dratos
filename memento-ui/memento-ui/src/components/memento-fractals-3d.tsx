@@ -1,172 +1,123 @@
 'use client'
 
-import React, { useRef, useState, useCallback, useEffect } from 'react'
-import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { Text, Html } from '@react-three/drei'
-import * as THREE from 'three'
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
+import React, { useEffect, useRef, useState } from 'react';
+import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
-type ConversationNode = {
-  id: string
-  content: string
-  children: ConversationNode[]
-  position: [number, number, number]
-  color: string
+interface Conversation {
+  id: string;
+  content: string;
+  children: Conversation[];
+  position: [number, number, number];
+  color: string;
 }
 
-const mockConversation: ConversationNode = {
-  id: 'root',
-  content: 'Initial conversation',
-  position: [0, 0, 0],
-  color: '#4CAF50',
-  children: [
-    {
-      id: 'branch1',
-      content: 'AI response',
-      position: [2, 2, 0],
-      color: '#2196F3',
-      children: [
-        {
-          id: 'branch1-1',
-          content: 'User follow-up',
-          position: [4, 3, 1],
-          color: '#FFC107',
-          children: []
-        },
-        {
-          id: 'branch1-2',
-          content: 'Alternative response',
-          position: [4, 1, -1],
-          color: '#9C27B0',
-          children: []
-        }
-      ]
-    },
-    {
-      id: 'branch2',
-      content: 'User question',
-      position: [-2, -2, 0],
-      color: '#E91E63',
-      children: [
-        {
-          id: 'branch2-1',
-          content: 'AI clarification',
-          position: [-4, -3, 1],
-          color: '#00BCD4',
-          children: []
-        }
-      ]
-    }
-  ]
+interface MementoFractals3DProps {
+  conversationHistory: Conversation[];
 }
 
-const Node: React.FC<{ node: ConversationNode; onClick: (node: ConversationNode) => void }> = ({ node, onClick }) => {
-  const meshRef = useRef<THREE.Mesh>(null)
-  const [hovered, setHovered] = useState(false)
-
-  useFrame(() => {
-    if (meshRef.current) {
-      meshRef.current.rotation.x += 0.01
-      meshRef.current.rotation.y += 0.01
-    }
-  })
-
-  return (
-    <group position={node.position}>
-      <mesh
-        ref={meshRef}
-        onClick={() => onClick(node)}
-        onPointerOver={() => setHovered(true)}
-        onPointerOut={() => setHovered(false)}
-      >
-        <sphereGeometry args={[0.5, 32, 32]} />
-        <meshStandardMaterial color={hovered ? '#ffffff' : node.color} />
-      </mesh>
-      <Html distanceFactor={10}>
-        <div className="bg-black bg-opacity-50 text-white p-2 rounded">
-          {node.content}
-        </div>
-      </Html>
-    </group>
-  )
-}
-
-const Edge: React.FC<{ start: [number, number, number]; end: [number, number, number] }> = ({ start, end }) => {
-  const ref = useRef<THREE.Line>(null)
-
-  useFrame(() => {
-    if (ref.current) {
-      ref.current.geometry.setFromPoints([new THREE.Vector3(...start), new THREE.Vector3(...end)])
-    }
-  })
-
-  return (
-    <line ref={ref}>
-      <bufferGeometry />
-      <lineBasicMaterial color="#ffffff" linewidth={2} />
-    </line>
-  )
-}
-
-const ConversationTree: React.FC<{ root: ConversationNode; onNodeClick: (node: ConversationNode) => void }> = ({ root, onNodeClick }) => {
-  const renderNode = useCallback((node: ConversationNode) => {
-    return (
-      <group key={node.id}>
-        <Node node={node} onClick={onNodeClick} />
-        {node.children.map(child => (
-          <group key={child.id}>
-            <Edge start={node.position} end={child.position} />
-            {renderNode(child)}
-          </group>
-        ))}
-      </group>
-    )
-  }, [onNodeClick])
-
-  return renderNode(root)
-}
-
-const MementoFractals: React.FC<{ conversationHistory: ConversationNode }> = ({ conversationHistory }) => {
+const MementoFractals3D: React.FC<MementoFractals3DProps> = ({ conversationHistory }) => {
   const mountRef = useRef<HTMLDivElement>(null);
+  const [hoveredNode, setHoveredNode] = useState<Conversation | null>(null);
+  const controlsRef = useRef<OrbitControls | null>(null);
 
   useEffect(() => {
     if (!mountRef.current) return;
 
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    const renderer = new THREE.WebGLRenderer();
+    // Three.js setup
+    const width = mountRef.current.clientWidth;
+    const height = mountRef.current.clientHeight;
 
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x111111);
+    const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(width, height);
     mountRef.current.appendChild(renderer.domElement);
 
     const controls = new OrbitControls(camera, renderer.domElement);
+    controlsRef.current = controls;
+    camera.position.z = 15;
 
-    const createNode = (node: ConversationNode, position: THREE.Vector3) => {
-      const geometry = new THREE.SphereGeometry(0.1, 32, 32);
-      const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+    // Create conversation nodes
+    const createNode = (conversation: Conversation, parent?: THREE.Vector3) => {
+      const geometry = new THREE.SphereGeometry(0.5, 32, 32);
+      const material = new THREE.MeshPhongMaterial({ color: conversation.color });
       const sphere = new THREE.Mesh(geometry, material);
-      sphere.position.copy(position);
+      sphere.position.set(...conversation.position);
       scene.add(sphere);
 
-      node.children.forEach((child, index) => {
-        const childPosition = new THREE.Vector3(
-          position.x + Math.cos(index * Math.PI * 2 / node.children.length),
-          position.y + 1,
-          position.z + Math.sin(index * Math.PI * 2 / node.children.length)
-        );
-        createNode(child, childPosition);
+      // Add text to sphere
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      if (context) {
+        canvas.width = 256;
+        canvas.height = 256;
+        context.fillStyle = '#ffffff';
+        context.font = '24px Arial';
+        context.textAlign = 'center';
+        context.fillText(conversation.content.substring(0, 20), 128, 128);
+      }
+      const texture = new THREE.CanvasTexture(canvas);
+      const textMaterial = new THREE.MeshBasicMaterial({ map: texture, transparent: true });
+      const textGeometry = new THREE.PlaneGeometry(1, 1);
+      const textMesh = new THREE.Mesh(textGeometry, textMaterial);
+      textMesh.position.set(0, 0, 0.51); // Slightly in front of the sphere
+      sphere.add(textMesh);
 
-        const line = new THREE.Line(
-          new THREE.BufferGeometry().setFromPoints([position, childPosition]),
-          new THREE.LineBasicMaterial({ color: 0xffffff })
-        );
+      // Add line to parent
+      if (parent) {
+        const lineGeometry = new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(...conversation.position),
+          parent
+        ]);
+        const lineMaterial = new THREE.LineBasicMaterial({ color: 0xffffff }); // White color
+        const line = new THREE.Line(lineGeometry, lineMaterial);
         scene.add(line);
+      }
+
+      // Add hover effect
+      sphere.userData = conversation;
+      sphere.addEventListener('pointerover', () => setHoveredNode(conversation));
+      sphere.addEventListener('pointerout', () => setHoveredNode(null));
+
+      conversation.children.forEach((child) => {
+        createNode(child, new THREE.Vector3(...conversation.position));
       });
     };
 
-    createNode(conversationHistory, new THREE.Vector3(0, 0, 0));
+    conversationHistory.forEach(conversation => createNode(conversation));
 
-    camera.position.z = 5;
+    // Add lighting
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    scene.add(ambientLight);
+    const pointLight = new THREE.PointLight(0xffffff, 1);
+    pointLight.position.set(10, 10, 10);
+    scene.add(pointLight);
+
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
+    const onMouseMove = (event: MouseEvent) => {
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(scene.children, true);
+
+      if (intersects.length > 0) {
+        const object = intersects[0].object;
+        if (object.userData && object.userData.content) {
+          setHoveredNode(object.userData);
+        } else {
+          setHoveredNode(null);
+        }
+      } else {
+        setHoveredNode(null);
+      }
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
 
     const animate = () => {
       requestAnimationFrame(animate);
@@ -176,12 +127,65 @@ const MementoFractals: React.FC<{ conversationHistory: ConversationNode }> = ({ 
 
     animate();
 
+    const handleResize = () => {
+      const newWidth = mountRef.current?.clientWidth || window.innerWidth;
+      const newHeight = mountRef.current?.clientHeight || window.innerHeight;
+      camera.aspect = newWidth / newHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(newWidth, newHeight);
+    };
+
+    window.addEventListener('resize', handleResize);
+
+    // Keyboard controls
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const speed = 0.5;
+      switch (event.key) {
+        case 'ArrowUp':
+          camera.position.y += speed;
+          break;
+        case 'ArrowDown':
+          camera.position.y -= speed;
+          break;
+        case 'ArrowLeft':
+          camera.position.x -= speed;
+          break;
+        case 'ArrowRight':
+          camera.position.x += speed;
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
     return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('mousemove', onMouseMove);
       mountRef.current?.removeChild(renderer.domElement);
     };
   }, [conversationHistory]);
 
-  return <div ref={mountRef} />;
+  return (
+    <div style={{ position: 'relative', width: '100%', height: '100vh' }}>
+      <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
+      {hoveredNode && (
+        <div style={{
+          position: 'absolute',
+          bottom: '20px',
+          left: '20px',
+          backgroundColor: 'rgba(0,0,0,0.7)',
+          color: 'white',
+          padding: '10px',
+          borderRadius: '5px',
+          maxWidth: '300px'
+        }}>
+          <h3>{hoveredNode.content}</h3>
+          <p>ID: {hoveredNode.id}</p>
+        </div>
+      )}
+    </div>
+  );
 };
 
-export default MementoFractals
+export default MementoFractals3D;
