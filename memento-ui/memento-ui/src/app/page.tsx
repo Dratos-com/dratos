@@ -1,11 +1,12 @@
 'use client'
 import React, { useState, useEffect } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import MementoFractals from "@/components/memento-fractals-3d";
 import { BentoConversationUi } from "@/components/bento-conversation-ui";
 import { EnhancedTimePortalConversations } from "@/components/enhanced-time-portal-conversations";
 import { SideBySideChatViewer } from "@/components/side-by-side-chat-viewer";
 import { TimePortalConversations } from "@/components/time-portal-conversations";
-import { fetchConversationPage, createBranch, mergeBranches, sendMessage, editMessage } from '@/lib/api';
+import { fetchConversationPage, createBranch, mergeBranches, sendMessage, editMessage, fetchBranches } from '@/lib/api';
 import { Button } from "@/components/ui/button";
 
 interface Conversation {
@@ -62,6 +63,8 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
+  const [branches, setBranches] = useState<string[]>([]);
+  const [activeConversations, setActiveConversations] = useState<[string, string]>(['initial', '']);
 
   const loadConversation = async () => {
     try {
@@ -110,10 +113,25 @@ export default function Home() {
     });
   };
 
-  const handleCreateBranch = async (conversationId: string) => {
+  const handleCreateBranch = async (conversationId: string, newBranchId: string) => {
     try {
-      const newBranchName = `branch-${Date.now()}`;
-      await createBranch(conversationId, newBranchName, conversation.commits[currentCommitIndex].id);
+      const latestCommitId = conversation.commits[conversation.commits.length - 1]?.id || 'initial';
+      const result = await createBranch(conversationId, newBranchId, latestCommitId);
+      
+      // Update the branches state with the new branch
+      setBranches(prevBranches => [...prevBranches, result.branch_name]);
+      
+      // Update active conversations to show the new branch
+      setActiveConversations([conversationId, result.branch_name]);
+
+      // Update the conversation state with the new branch and commit
+      setConversation(prevConversation => ({
+        ...prevConversation,
+        branches: [...prevConversation.branches, result.branch_name],
+        commits: [...prevConversation.commits, { id: result.commit_id, messages: result.history }]
+      }));
+
+      // Optionally, you can also refresh the conversation data here
       await loadConversation();
     } catch (error) {
       console.error('Error creating branch:', error);
@@ -133,10 +151,11 @@ export default function Home() {
 
   const handleSendMessage = async (conversationId: string, content: string, sender: 'user' | 'ai') => {
     try {
-      const newMessage = await sendMessage(conversationId, content, sender);
+      const newMessage: MessageResponse = await sendMessage(conversationId, content, sender);
       setConversation(prevConversation => ({
         ...prevConversation,
-        messages: [...prevConversation.messages, newMessage]
+        messages: [...prevConversation.messages, newMessage],
+        commits: [...prevConversation.commits, { id: newMessage.commit_id, messages: newMessage.history }]
       }));
     } catch (error) {
       console.error('Error sending message:', error);
@@ -188,11 +207,12 @@ export default function Home() {
       <EnhancedTimePortalConversations />
       <SideBySideChatViewer
         conversations={[conversation]}
-        activeConversations={[conversation.id, '']}
+        activeConversations={activeConversations}
         onCreateBranch={handleCreateBranch}
         onMergeBranches={handleMergeBranches}
         onSendMessage={handleSendMessage}
         onEditMessage={handleEditMessage}
+        branches={branches}
       />
       {conversation && conversation.commits.length % pageSize === 0 && (
         <Button onClick={loadMoreCommits}>Load More</Button>

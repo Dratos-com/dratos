@@ -1,7 +1,11 @@
 from fastapi import APIRouter, Depends, Query, HTTPException, Body
-from typing import List, Dict
+from typing import List, Dict, Optional
 from beta.agents.agent import Agent
 from pydantic import BaseModel
+import logging
+from datetime import datetime
+
+logger = logging.getLogger("uvicorn.error")
 
 router = APIRouter()
 
@@ -16,9 +20,54 @@ class MessageCreate(BaseModel):
 class MessageEdit(BaseModel):
     content: str
 
-class BranchCreate(BaseModel):
+class BranchResponse(BaseModel):
     branch_name: str
     commit_id: str
+    history: List[Dict]
+
+class BranchCreate(BaseModel):
+    new_branch_id: str
+    commit_id: str
+
+class HistoryItem(BaseModel):
+    id: str
+    content: str
+    sender: str
+    timestamp: str
+
+    @classmethod
+    def from_dict(cls, data: Dict):
+        # Convert timestamp to string if it's a datetime object
+        if isinstance(data.get('timestamp'), datetime):
+            data['timestamp'] = data['timestamp'].isoformat()
+        return cls(**data)
+
+class MessageResponse(BaseModel):
+    id: str
+    content: str
+    sender: str
+    timestamp: str
+    commit_id: str
+    history: List[HistoryItem]
+
+@router.post("/conversation/{conversation_id}/branch", response_model=BranchResponse)
+async def create_conversation_branch(
+    conversation_id: str,
+    branch_data: BranchCreate,
+    agent: Agent = Depends(get_agent)
+):
+    try:
+        # Retrieve the latest commit ID for the conversation
+        latest_commit = await agent.get_latest_commit_id(conversation_id)
+        result = await agent.create_conversation_branch(conversation_id, branch_data.new_branch_id, latest_commit)
+        return BranchResponse(
+            branch_name=result["branch_name"],
+            commit_id=result["commit_id"],
+            history=result["history"]
+        )
+    except Exception as e:
+        print(f"Error in create_conversation_branch: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/conversation/{conversation_id}/history")
 async def get_conversation_history(
@@ -37,17 +86,6 @@ async def get_conversation_branches(
         return await agent.get_conversation_branches(conversation_id)
     except Exception as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
-
-@router.post("/conversation/{conversation_id}/branch")
-async def create_conversation_branch(
-    conversation_id: str,
-    branch_data: BranchCreate,
-    agent: Agent = Depends(get_agent)
-):
-    try:
-        return await agent.create_conversation_branch(conversation_id, branch_data.branch_name, branch_data.commit_id)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
 
 @router.post("/conversation/{conversation_id}/switch-branch")
 async def switch_conversation_branch(
@@ -84,16 +122,31 @@ async def get_conversation_page(
     except Exception as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
 
-@router.post("/conversation/{conversation_id}/message")
-async def send_message(
+@router.post("/conversation/{conversation_id}/message", response_model=MessageResponse)
+async def post_message(
     conversation_id: str,
     message: MessageCreate,
     agent: Agent = Depends(get_agent)
 ):
     try:
-        return await agent.add_message(conversation_id, message.content, message.sender)
+        new_message = await agent.add_message(conversation_id, message.content, message.sender)
+        logger.debug(f"New message to return: {new_message}")
+        
+        # Ensure history is a list of HistoryItem
+        history = [HistoryItem.from_dict(item) for item in new_message.get("history", [])]
+        
+        # Create and return a MessageResponse instance
+        return MessageResponse(
+            id=new_message["id"],
+            content=new_message["content"],
+            sender=new_message["sender"],
+            timestamp=new_message["timestamp"],
+            commit_id=new_message["commit_id"],
+            history=history
+        )
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.error(f"Error in post_message: {e}")
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 @router.put("/conversation/{conversation_id}/message/{message_id}")
 async def edit_message(

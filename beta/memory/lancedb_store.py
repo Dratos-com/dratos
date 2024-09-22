@@ -23,13 +23,20 @@ class LanceDBMemoryStore:
             self.table = self.db.open_table(self.table_name)
 
     def add_memory(self, conversation_id, message):
-        self.table.add([{
-            "conversation_id": conversation_id,
-            "id": message["id"],
-            "content": message["content"],
-            "sender": message["sender"],
-            "timestamp": datetime.fromisoformat(message["timestamp"])
-        }])
+        try:
+            # Ensure timestamp is in the correct format
+            timestamp = datetime.fromisoformat(message["timestamp"])
+            
+            self.table.add([{
+                "conversation_id": conversation_id,
+                "id": message["id"],
+                "content": message["content"],
+                "sender": message["sender"],
+                "timestamp": timestamp
+            }])
+        except (TypeError, ValueError) as e:
+            print(f"Error adding memory: {e}")
+            raise
 
     def edit_memory(self, conversation_id, message_id, new_content):
         # This is a simple implementation. In a real-world scenario, you might want to use more efficient update methods.
@@ -44,4 +51,5 @@ class LanceDBMemoryStore:
         return self.table.to_pandas().to_dict('records')
 
     def get_conversation_memories(self, conversation_id):
-        return self.table.to_pandas()[self.table.to_pandas()['conversation_id'] == conversation_id].to_dict('records')
+        memories = self.table.to_pandas()[self.table.to_pandas()['conversation_id'] == conversation_id]
+        return memories.to_dict('records')

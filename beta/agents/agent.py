@@ -17,6 +17,7 @@ import pyarrow as pa
 from ray.serve.handle import DeploymentResponse
 import uuid
 import os
+from ulid import ULID
 
 from ..data.obj.artifacts.artifact_obj import Artifact
 from ..models.obj.base_language_model import LLM
@@ -298,11 +299,26 @@ class Agent:
             logging.error(f"Failed to store artifact vectors in LanceDB: {e}")
             raise
 
-    async def add_memory(self, content: str) -> str:
-        vector = await self.model.engine.get_embedding(content)
-        memory = Memory(id=str(uuid.uuid4()), content=content, vector=vector)
-        self.memory_store.add_memory(memory)
-        return self.git_api.commit_memory(f"Added memory: {memory.id}")
+    async def add_message(self, conversation_id: str, content: str, sender: str) -> Dict:
+        message = {
+            "id": str(uuid.uuid4()),
+            "content": content,
+            "sender": sender,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        self.memory_store.add_memory(conversation_id, message)
+
+        # Commit the new message to the current branch
+        commit_id = self.git_api.commit_memory(message["content"])
+
+        # Retrieve the updated conversation history
+        history = await self.get_conversation_history(conversation_id)
+
+        # Include commit_id and history in the response
+        message["commit_id"] = commit_id
+        message["history"] = history
+
+        return message
 
     async def search_memories(self, query: str, limit: int = 5) -> List[Memory]:
         query_vector = await self.model.engine.get_embedding(query)
@@ -349,7 +365,7 @@ class Agent:
                 result = Result.Error(e)
 
         # Add memory of the execution
-        await self.add_memory(f"Executed pipeline with input: {input_data}")
+        await self.add_message(f"Executed pipeline with input: {input_data}")
 
         return result
 
@@ -387,7 +403,7 @@ class Agent:
         print(f"Inferred action: {inferred_action}")
 
         # Add memory of the inferred action
-        await self.add_memory(
+        await self.add_message(
             f"Inferred action: {inferred_action} for prompt: {prompt.content}"
         )
 
@@ -401,19 +417,60 @@ class Agent:
         return next((tool for tool in tools if tool.can_handle(task)), None)
 
     async def get_conversation_history(self, conversation_id: str) -> List[Dict]:
-        memories = self.memory_store.get_all_memories()
-        return [
-            {"id": m.id, "content": m.content, "timestamp": m.timestamp}
-            for m in memories
-            if m.conversation_id == conversation_id
-        ]
+        try:
+            memories = self.memory_store.get_conversation_memories(conversation_id)
+            return [
+                {
+                    "id": m["id"],
+                    "content": m["content"],
+                    "sender": m["sender"],
+                    "timestamp": m["timestamp"]
+                }
+                for m in memories
+            ]
+        except Exception as e:
+            print(f"Error fetching conversation history: {e}")
+            return []
 
     async def get_conversation_branches(self, conversation_id: str) -> List[str]:
         return self.git_api.get_branches()
 
-    async def create_conversation_branch(self, branch_name: str):
-        self.git_api.create_branch(branch_name)
-        return await self.get_conversation_history(branch_name)
+    async def create_conversation_branch(self, conversation_id: str, new_branch_id: str, commit_id: str):
+        try:
+            branch_name, new_commit_id = await self.git_api.create_branch_async(new_branch_id, commit_id)
+            if branch_name is None or new_commit_id is None:
+                raise Exception("Failed to create branch. The repository might be empty or the commit ID might be invalid.")
+            
+            # Create an initial commit if the branch is new
+            if not self.memory_store.get_conversation_memories(branch_name):
+                self.memory_store.add_memory(
+                    branch_name,
+                    {
+                        "id": str(uuid.uuid4()),
+                        "content": f"Branch created: {branch_name}",
+                        "sender": "system",
+                        "timestamp": datetime.utcnow().isoformat()
+                    }
+                )
+            
+            return {
+                "branch_name": branch_name,
+                "commit_id": new_commit_id,
+                "history": await self.get_conversation_history(branch_name)
+            }
+        except Exception as e:
+            print(f"Error creating branch: {e}")
+            raise
+
+    async def get_latest_commit_id(self, conversation_id: str) -> str:
+        # Implement logic to retrieve the latest commit ID for the given conversation
+        # For simplicity, we'll return the latest commit in the main branch
+        try:
+            commit = self.git_api.repo.head.commit.hexsha
+            return commit
+        except Exception as e:
+            print(f"Error retrieving latest commit ID: {e}")
+            raise
 
     async def switch_conversation_branch(self, branch_name: str):
         self.switch_memory_branch(branch_name)
@@ -424,9 +481,7 @@ class Agent:
         self._reload_memories()
         return await self.get_conversation_history(target_branch)
 
-    async def get_conversation_page(
-        self, conversation_id: str, skip: int, limit: int
-    ) -> Dict:
+    async def get_conversation_page(self, conversation_id: str, skip: int, limit: int) -> Dict:
         memories = self.memory_store.get_conversation_memories(conversation_id)
         if not memories:
             # If no memories exist, create an initial commit
@@ -470,16 +525,6 @@ class Agent:
         except Exception as e:
             print(f"Error fetching conversation history: {e}")
             return []
-
-    async def add_message(self, conversation_id: str, content: str, sender: str):
-        message = {
-            "id": str(uuid.uuid4()),
-            "content": content,
-            "sender": sender,
-            "timestamp": datetime.utcnow().isoformat()
-        }
-        self.memory_store.add_memory(conversation_id, message)
-        return message
 
 
 __all__ = ["Agent", "AgentStatus", "ToolInterface", "Prompt", "Message", "Metadata"]

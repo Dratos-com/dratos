@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -8,6 +8,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { GitBranch, Send, Edit2, Check, X } from "lucide-react"
+import { ulid } from 'ulid'
+import { sendMessage } from "@/lib/api"
 
 type Message = {
   id: string
@@ -24,10 +26,11 @@ type Conversation = {
 type SideBySideChatViewerProps = {
   conversations: Conversation[]
   activeConversations: [string, string]
-  onCreateBranch: (conversationId: string) => void
+  onCreateBranch: (conversationId: string, newBranchId: string) => void
   onMergeBranches: (sourceBranch: string, targetBranch: string) => void
   onSendMessage: (conversationId: string, content: string, sender: 'user' | 'ai') => void
   onEditMessage: (conversationId: string, messageId: string, newContent: string) => void
+  branches: string[]
 }
 
 export function SideBySideChatViewer({
@@ -36,20 +39,32 @@ export function SideBySideChatViewer({
   onCreateBranch,
   onMergeBranches,
   onSendMessage,
-  onEditMessage
+  onEditMessage,
+  branches
 }: SideBySideChatViewerProps) {
   const [newMessage, setNewMessage] = useState('')
   const [editingMessage, setEditingMessage] = useState<string | null>(null)
+  const [editContent, setEditContent] = useState('')
+  const [error, setError] = useState<string | null>(null) // Add this line
 
-  const handleSendMessage = (conversationId: string) => {
-    if (newMessage.trim() === '') return
-    onSendMessage(conversationId, newMessage, 'user')
-    setNewMessage('')
-  }
+  const handleSendMessage = async (conversationId: string) => {
+    try {
+      await onSendMessage(conversationId, newMessage, 'user')
+      setNewMessage('')
+    } catch (error) {
+      console.error('Error sending message:', error)
+      setError('Failed to send message') // Use setError here
+    }
+  };
 
   const handleEditMessage = (conversationId: string, messageId: string, newContent: string) => {
     onEditMessage(conversationId, messageId, newContent)
     setEditingMessage(null)
+  }
+
+  const handleCreateBranch = (conversationId: string) => {
+    const newBranchId = ulid()
+    onCreateBranch(conversationId, newBranchId)
   }
 
   const renderConversation = (conversationId: string) => {
@@ -61,7 +76,7 @@ export function SideBySideChatViewer({
         <CardHeader>
           <CardTitle className="flex justify-between items-center">
             Conversation {conversation.id}
-            <Button variant="outline" size="sm" onClick={() => onCreateBranch(conversation.id)}>
+            <Button variant="outline" size="sm" onClick={() => handleCreateBranch(conversation.id)}>
               <GitBranch className="w-4 h-4 mr-2" />
               Branch
             </Button>
@@ -128,7 +143,7 @@ export function SideBySideChatViewer({
         <TabsContent value="side-by-side" className="w-full">
           <div className="grid grid-cols-2 gap-4">
             {renderConversation(activeConversations[0])}
-            {renderConversation(activeConversations[1])}
+            {activeConversations[1] && renderConversation(activeConversations[1])}
           </div>
         </TabsContent>
         <TabsContent value="single" className="w-full">
@@ -137,6 +152,7 @@ export function SideBySideChatViewer({
           </div>
         </TabsContent>
       </Tabs>
+      {error && <div className="text-red-500">{error}</div>} {/* Add this line to display errors */}
     </div>
   )
 }
