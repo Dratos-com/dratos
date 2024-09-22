@@ -29,6 +29,7 @@ from ..tools.git_api import GitAPI
 from beta.memory.lancedb_store import LanceDBMemoryStore
 from beta.git.git_api import GitAPI
 
+
 class AgentStatus(str, Enum):
     """
     Enum representing the status of an agent.
@@ -242,7 +243,7 @@ class Agent:
             artifact_df = artifact.df
             # gzip unzip the payload column
             import gzip
-            
+
             def unzip_payload(zipped_payload: DataType.string):
                 try:
                     return gzip.decompress(zipped_payload)
@@ -252,7 +253,7 @@ class Agent:
                     return zipped_payload  # Return original payload if unzipping fails
 
             unzip_payloads = unzip_payload(artifact_df.select("payload"))
-            
+
             @daft.udf(
                 return_dtype=DataType.embedding(
                     DataType.float32(), size=self.embedding_func.dimension
@@ -386,7 +387,9 @@ class Agent:
         print(f"Inferred action: {inferred_action}")
 
         # Add memory of the inferred action
-        await self.add_memory(f"Inferred action: {inferred_action} for prompt: {prompt.content}")
+        await self.add_memory(
+            f"Inferred action: {inferred_action} for prompt: {prompt.content}"
+        )
 
         return inferred_action
 
@@ -401,7 +404,8 @@ class Agent:
         memories = self.memory_store.get_all_memories()
         return [
             {"id": m.id, "content": m.content, "timestamp": m.timestamp}
-            for m in memories if m.conversation_id == conversation_id
+            for m in memories
+            if m.conversation_id == conversation_id
         ]
 
     async def get_conversation_branches(self, conversation_id: str) -> List[str]:
@@ -420,33 +424,62 @@ class Agent:
         self._reload_memories()
         return await self.get_conversation_history(target_branch)
 
-    async def get_conversation_page(self, conversation_id: str, skip: int, limit: int) -> Dict:
-        memories = self.memory_store.get_all_memories()
-        conversation_memories = [m for m in memories if m.conversation_id == conversation_id]
-        if len(conversation_memories) == 0:
-            # create a new branch if it doesn't exist
+    async def get_conversation_page(
+        self, conversation_id: str, skip: int, limit: int
+    ) -> Dict:
+        memories = self.memory_store.get_conversation_memories(conversation_id)
+        if not memories:
+            # If no memories exist, create an initial commit
             self.git_api.create_branch(conversation_id)
-            conversation_memories = []
-        
-        paginated_memories = conversation_memories[skip:skip + limit]
+            self.memory_store.add_memory(
+                conversation_id,
+                {
+                    "id": str(uuid.uuid4()),
+                    "content": "Welcome to the conversation!",
+                    "sender": "system",
+                    "timestamp": datetime.utcnow().isoformat()
+                }
+            )
+        memories = self.memory_store.get_conversation_memories(conversation_id)
+        paginated_memories = memories[skip:skip + limit]
         return {
             "id": conversation_id,
-            "commits": [
+            "messages": [
                 {
-                    "id": m.id,
-                    "message": m.content,
-                    "author": "User",  # You might want to store and use actual author information
-                    "timestamp": m.timestamp.isoformat(),
-                    "changes": {
-                        "added": [m.content],
-                        "removed": []
-                    }
+                    "id": m["id"],
+                    "content": m["content"],
+                    "sender": m["sender"],
+                    "timestamp": m["timestamp"]
                 } for m in paginated_memories
             ],
-            "branches": self.git_api.get_branches(),
-            "forks": []  # Implement fork functionality if needed
+            "total_messages": len(memories)
         }
 
+    async def get_conversation_history(self, conversation_id: str) -> List[Dict]:
+        try:
+            memories = self.memory_store.get_conversation_memories(conversation_id)
+            return [
+                {
+                    "id": m["id"],
+                    "content": m["content"],
+                    "sender": m["sender"],
+                    "timestamp": m["timestamp"]
+                }
+                for m in memories
+            ]
+        except Exception as e:
+            print(f"Error fetching conversation history: {e}")
+            return []
+
+    async def add_message(self, conversation_id: str, content: str, sender: str):
+        message = {
+            "id": str(uuid.uuid4()),
+            "content": content,
+            "sender": sender,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        self.memory_store.add_memory(conversation_id, message)
+        return message
 
 
 __all__ = ["Agent", "AgentStatus", "ToolInterface", "Prompt", "Message", "Metadata"]

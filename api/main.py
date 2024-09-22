@@ -7,7 +7,7 @@ if typing.TYPE_CHECKING:
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from api.config import Config
-from api.v1 import conversation
+from api.v1.conversation import router as conversation_router  # Update this line
 
 app = FastAPI()
 app.add_middleware(
@@ -29,7 +29,7 @@ async def root():
     return {"message": "Welcome to the Multi-Agent Framework API"}
 
 # Include the conversation router with the correct prefix
-app.include_router(conversation.router, prefix="/api/v1")
+app.include_router(conversation_router, prefix="/api/v1")
 
 if __name__ == "__main__":
     import uvicorn

@@ -15,7 +15,7 @@ class GitAPI:
         else:
             self.repo = Repo(repo_path)
 
-    def create_branch(self, branch_name):
+    def create_branch(self, branch_name, commit_id=None):
         try:
             if not self.repo.heads:
                 # If there are no branches, create the first commit
@@ -24,7 +24,11 @@ class GitAPI:
                 self.repo.index.commit("Initial commit")
             
             if branch_name not in self.repo.heads:
-                self.repo.create_head(branch_name)
+                if commit_id:
+                    new_branch = self.repo.create_head(branch_name, commit_id)
+                else:
+                    new_branch = self.repo.create_head(branch_name)
+                new_branch.checkout()
             return self.repo.heads[branch_name].checkout()
         except (GitCommandError, BadName) as e:
             print(f"Error creating branch: {e}")

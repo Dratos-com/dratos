@@ -67,23 +67,34 @@ export const TimePortalConversations: React.FC<TimePortalConversationsProps> = (
   const [mergeTarget, setMergeTarget] = useState('');
 
   const fetchConversationHistory = async (conversationId: string) => {
-    const response = await axios.get(`${API_BASE_URL}/conversation/${conversationId}/history`);
-    setConversationHistory(response.data);
+    try {
+      const response = await axios.get(`${API_BASE_URL}/conversation/${conversationId}/history`);
+      setConversationHistory(response.data);
+    } catch (error) {
+      console.error('Error fetching conversation history:', error);
+      // Set an empty array or some default state when there's an error
+      setConversationHistory([]);
+    }
   };
 
   const fetchBranches = async (conversationId: string) => {
-    const response = await axios.get(`${API_BASE_URL}/conversation/${conversationId}/branches`);
-    setBranches(response.data);
+    try {
+      const response = await axios.get(`${API_BASE_URL}/conversation/${conversationId}/branches`);
+      setBranches(response.data);
+    } catch (error) {
+      console.error('Error fetching branches:', error);
+      // Set an empty array or some default state when there's an error
+      setBranches([]);
+    }
   };
 
   const handleCreateBranch = async () => {
     try {
       await createBranch(conversationId, newBranchName, conversation.commits[currentCommitIndex].id);
       fetchBranches(conversationId);
-      onRefresh(); // Refresh the conversation data after creating a branch
+      onRefresh();
     } catch (error) {
       console.error('Error creating branch:', error);
-      // Implement user feedback for error (e.g., using a toast notification)
     }
   };
 
@@ -91,15 +102,14 @@ export const TimePortalConversations: React.FC<TimePortalConversationsProps> = (
     try {
       await mergeBranches(conversationId, mergeSource, mergeTarget);
       fetchBranches(conversationId);
-      onRefresh(); // Refresh the conversation data after merging branches
+      onRefresh();
     } catch (error) {
       console.error('Error merging branches:', error);
-      // Implement user feedback for error (e.g., using a toast notification)
     }
   };
 
   const switchBranch = async (conversationId: string, branchName: string) => {
-    const response = await axios.post(`http://localhost:8998/conversation/${conversationId}/switch-branch`, { branch_name: branchName });
+    const response = await axios.post(`${API_BASE_URL}/conversation/${conversationId}/switch-branch`, { branch_name: branchName });
     setConversationHistory(response.data);
     setCurrentBranch(branchName);
   };
@@ -111,10 +121,10 @@ export const TimePortalConversations: React.FC<TimePortalConversationsProps> = (
   useEffect(() => {
     fetchConversationHistory(conversationId);
     fetchBranches(conversationId);
-  }, [conversationId]); // Add conversationId to the dependency array
+  }, [conversationId]);
 
   if (!conversation?.commits) {
-    return null; // or some loading/error state
+    return null;
   }
 
   return (
