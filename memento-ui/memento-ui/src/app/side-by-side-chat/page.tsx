@@ -139,14 +139,20 @@ export default function SideBySideChatPage() {
       const handleSendMessage = async (conversationId: string, content: string, sender: 'user' | 'ai') => {
         try {
           const newMessage = await sendMessage(conversationId, content, sender);
-          setConversations(prev => ({
-            ...prev,
-            [conversationId]: {
-              ...prev[conversationId],
-              messages: [...prev[conversationId].messages, newMessage],
-              commits: [...prev[conversationId].commits, { id: newMessage.commit_id, messages: newMessage.history }],
-            },
-          }));
+          setConversations(prev => {
+            const existingConversation = prev[conversationId] || { messages: [], commits: [] };
+            return {
+              ...prev,
+              [conversationId]: {
+                ...existingConversation,
+                messages: [...existingConversation.messages, newMessage],
+                commits: [
+                  ...existingConversation.commits, 
+                  { id: newMessage.commit_id, messages: newMessage.history }
+                ],
+              },
+            };
+          });
         } catch (error) {
           console.error('Error sending message:', error);
           setError('Failed to send message');
