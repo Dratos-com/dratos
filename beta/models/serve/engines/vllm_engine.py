@@ -15,7 +15,7 @@ class VLLMEngine(OpenAIEngine):
         super().__init__(config)
         self.api_key = api_key
         self.base_url = base_url
-        self.client: Optional[AsyncOpenAI | OpenAI] = None
+        self.client: Optional[AsyncOpenAI | OpenAI] = AsyncOpenAI(api_key=self.api_key, base_url=self.base_url)
 
     async def initialize(self) -> None:
         self.client = AsyncOpenAI(api_key=self.api_key, base_url=self.base_url)
@@ -25,10 +25,24 @@ class VLLMEngine(OpenAIEngine):
         self,
         prompt: Union[str, List[str]],
         structure: Union[str, Dict, pa.Schema],
+        messages: List[Dict[str, str]] = None,
         **kwargs,
     ) -> Any:
         # Implement structured generation logic here
-        pass
+        response_format = {"type": "json_object"}
+
+        if messages is None:
+            messages = [{"role": "user", "content": prompt}]
+        else:
+            messages.append({"role": "user", "content": prompt})
+
+        response = await self.client.chat.completions.create(
+            model=self.model_name,
+            messages=messages,
+            response_format=response_format,
+            **kwargs,
+        )
+        return response
 
 
 if __name__ == "__main__":

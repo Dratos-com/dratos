@@ -1,6 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react';
+import { ulid } from 'ulid';
+import { fetchBranches, fetchConversationPage } from '@/lib/api';
+
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -8,7 +11,6 @@ import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { GitBranch, Send, Edit2, Check, X } from "lucide-react"
-import { ulid } from 'ulid'
 import { sendMessage } from "@/lib/api"
 
 type Message = {
@@ -24,7 +26,7 @@ type Conversation = {
 }
 
 type SideBySideChatViewerProps = {
-  conversations: Conversation[]
+  conversations: { [key: string]: Conversation }  // Change this line
   activeConversations: [string, string]
   onCreateBranch: (conversationId: string, newBranchId: string) => void
   onMergeBranches: (sourceBranch: string, targetBranch: string) => void
@@ -45,7 +47,22 @@ export function SideBySideChatViewer({
   const [newMessage, setNewMessage] = useState('')
   const [editingMessage, setEditingMessage] = useState<string | null>(null)
   const [editContent, setEditContent] = useState('')
-  const [error, setError] = useState<string | null>(null) // Add this line
+  const [error, setError] = useState<string | null>(null)
+  const [localBranches, setLocalBranches] = useState(branches || [])
+
+  useEffect(() => {
+    const fetchAllBranches = async () => {
+      try {
+        const fetchedBranches = await fetchBranches('initial'); // Assuming 'initial' is your main conversation ID
+        setLocalBranches(fetchedBranches);
+      } catch (error) {
+        console.error('Error fetching branches:', error);
+        setError('Failed to fetch branches');
+      }
+    };
+
+    fetchAllBranches();
+  }, []);
 
   const handleSendMessage = async (conversationId: string) => {
     try {
@@ -62,13 +79,20 @@ export function SideBySideChatViewer({
     setEditingMessage(null)
   }
 
-  const handleCreateBranch = (conversationId: string) => {
-    const newBranchId = ulid()
-    onCreateBranch(conversationId, newBranchId)
-  }
+  const handleCreateBranch = async (conversationId: string) => {
+    try {
+      const newBranchId = ulid();
+      await onCreateBranch(conversationId, newBranchId);
+      const updatedBranches = await fetchBranches(conversationId);
+      setLocalBranches(updatedBranches);
+    } catch (error) {
+      console.error('Error creating branch:', error);
+      setError('Failed to create branch');
+    }
+  };
 
   const renderConversation = (conversationId: string) => {
-    const conversation = conversations.find(conv => conv.id === conversationId)
+    const conversation = conversations[conversationId]  // Change this line
     if (!conversation) return null
 
     return (

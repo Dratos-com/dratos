@@ -57,82 +57,61 @@ const initialConversation: Conversation = {
 };
 
 export default function Home() {
-  const [conversation, setConversation] = useState<Conversation>(initialConversation);
-  const [currentCommitIndex, setCurrentCommitIndex] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [conversations, setConversations] = useState<{ [key: string]: Conversation }>({
+    initial: initialConversation,
+  });
+  const [activeConversations, setActiveConversations] = useState<string[]>(['initial']);
+  const [branches, setBranches] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
-  const [branches, setBranches] = useState<string[]>([]);
-  const [activeConversations, setActiveConversations] = useState<[string, string]>(['initial', '']);
-
-  const loadConversation = async () => {
-    try {
-      setLoading(true);
-      const conversationData = await fetchConversationPage('initial', page, pageSize);
-      if (conversationData && conversationData.commits && conversationData.commits.length > 0) {
-        setConversation(prevConversation => {
-          const newMessages = conversationData.commits.map(commit => ({
-            id: commit.id,
-            content: commit.message,
-            sender: commit.author === 'User' ? 'user' : 'ai',
-            timestamp: commit.timestamp
-          }));
-          
-          return {
-            ...(prevConversation || {}),
-            ...conversationData,
-            commits: [...(prevConversation?.commits || []), ...conversationData.commits],
-            messages: [...(prevConversation?.messages || []), ...newMessages],
-          } as Conversation;
-        });
-      } else {
-        setConversation(initialConversation);
-      }
-      setLoading(false);
-    } catch (err) {
-      console.error('Failed to load conversation:', err);
-      setError('Failed to load conversation');
-      setConversation(initialConversation);
-      setLoading(false);
-    }
-  };
 
   useEffect(() => {
     loadConversation();
-  }, [page, pageSize]);
+    loadBranches();
+  }, []);
 
-  const handleTimeTravel = (direction: 'back' | 'forward') => {
-    setCurrentCommitIndex(prevIndex => {
-      if (direction === 'back' && prevIndex > 0) {
-        return prevIndex - 1;
-      } else if (direction === 'forward' && conversation && prevIndex < conversation.commits.length - 1) {
-        return prevIndex + 1;
-      }
-      return prevIndex;
-    });
+  const loadConversation = async () => {
+    try {
+      const conversationData = await fetchConversationPage('initial', 1, 20);
+      setConversations(prev => ({
+        ...prev,
+        initial: {
+          ...prev.initial,
+          messages: conversationData.messages,
+        },
+      }));
+    } catch (error) {
+      console.error('Error loading conversation:', error);
+      setError('Failed to load conversation');
+    }
+  };
+
+  const loadBranches = async () => {
+    try {
+      const branchesData = await fetchBranches('initial');
+      setBranches(branchesData);
+    } catch (error) {
+      console.error('Error loading branches:', error);
+      setError('Failed to load branches');
+    }
   };
 
   const handleCreateBranch = async (conversationId: string, newBranchId: string) => {
     try {
-      const latestCommitId = conversation.commits[conversation.commits.length - 1]?.id || 'initial';
-      const result = await createBranch(conversationId, newBranchId, latestCommitId);
-      
-      // Update the branches state with the new branch
-      setBranches(prevBranches => [...prevBranches, result.branch_name]);
-      
-      // Update active conversations to show the new branch
-      setActiveConversations([conversationId, result.branch_name]);
-
-      // Update the conversation state with the new branch and commit
-      setConversation(prevConversation => ({
-        ...prevConversation,
-        branches: [...prevConversation.branches, result.branch_name],
-        commits: [...prevConversation.commits, { id: result.commit_id, messages: result.history }]
+      const latestCommit = conversations[conversationId].commits[conversations[conversationId].commits.length - 1];
+      await createBranch(conversationId, newBranchId, latestCommit.id);
+      await loadBranches();
+      // Initialize the new conversation branch
+      setConversations(prev => ({
+        ...prev,
+        [newBranchId]: {
+          id: newBranchId,
+          commits: [],
+          branches: [],
+          forks: [],
+          messages: [],
+        },
       }));
-
-      // Optionally, you can also refresh the conversation data here
-      await loadConversation();
+      setActiveConversations(prev => [...prev, newBranchId]);
     } catch (error) {
       console.error('Error creating branch:', error);
       setError('Failed to create branch');
@@ -141,7 +120,7 @@ export default function Home() {
 
   const handleMergeBranches = async (sourceBranch: string, targetBranch: string) => {
     try {
-      await mergeBranches(conversation.id, sourceBranch, targetBranch);
+      await mergeBranches(conversations.initial.id, sourceBranch, targetBranch);
       await loadConversation();
     } catch (error) {
       console.error('Error merging branches:', error);
@@ -151,11 +130,14 @@ export default function Home() {
 
   const handleSendMessage = async (conversationId: string, content: string, sender: 'user' | 'ai') => {
     try {
-      const newMessage: MessageResponse = await sendMessage(conversationId, content, sender);
-      setConversation(prevConversation => ({
-        ...prevConversation,
-        messages: [...prevConversation.messages, newMessage],
-        commits: [...prevConversation.commits, { id: newMessage.commit_id, messages: newMessage.history }]
+      const newMessage = await sendMessage(conversationId, content, sender);
+      setConversations(prev => ({
+        ...prev,
+        [conversationId]: {
+          ...prev[conversationId],
+          messages: [...prev[conversationId].messages, newMessage],
+          commits: [...prev[conversationId].commits, { id: newMessage.commit_id, messages: newMessage.history }],
+        },
       }));
     } catch (error) {
       console.error('Error sending message:', error);
@@ -166,11 +148,14 @@ export default function Home() {
   const handleEditMessage = async (conversationId: string, messageId: string, newContent: string) => {
     try {
       const updatedMessage = await editMessage(conversationId, messageId, newContent);
-      setConversation(prevConversation => ({
-        ...prevConversation,
-        messages: prevConversation.messages.map(msg =>
-          msg.id === messageId ? updatedMessage : msg
-        )
+      setConversations(prev => ({
+        ...prev,
+        [conversationId]: {
+          ...prev[conversationId],
+          messages: prev[conversationId].messages.map(msg =>
+            msg.id === messageId ? updatedMessage : msg
+          ),
+        },
       }));
     } catch (error) {
       console.error('Error editing message:', error);
@@ -179,34 +164,18 @@ export default function Home() {
   };
 
   const loadMoreCommits = () => {
-    setPage(prevPage => prevPage + 1);
+    // Implement load more commits logic
   };
 
   const refreshConversation = async () => {
-    setPage(1);
-    await loadConversation();
+    // Implement refresh conversation logic
   };
 
-  if (loading) return <div>Loading...</div>;
-  if (error) return <div>Error: {error}</div>;
-
   return (
-    <div>
-      <h1>Memento UI</h1>
-      {conversation && (
-        <TimePortalConversations 
-          conversationId={conversation.id}
-          conversation={conversation}
-          currentCommitIndex={currentCommitIndex}
-          onTimeTravel={handleTimeTravel}
-          onRefresh={refreshConversation}
-        />
-      )}
-      <MementoFractals conversationHistory={conversation?.fractals || initialConversation.fractals} />
-      <BentoConversationUi />
-      <EnhancedTimePortalConversations />
+    <main className="flex min-h-screen flex-col items-center justify-between p-24">
+      <h1 className="text-4xl font-bold mb-8">Memento Chat</h1>
       <SideBySideChatViewer
-        conversations={[conversation]}
+        conversations={conversations}
         activeConversations={activeConversations}
         onCreateBranch={handleCreateBranch}
         onMergeBranches={handleMergeBranches}
@@ -214,9 +183,7 @@ export default function Home() {
         onEditMessage={handleEditMessage}
         branches={branches}
       />
-      {conversation && conversation.commits.length % pageSize === 0 && (
-        <Button onClick={loadMoreCommits}>Load More</Button>
-      )}
-    </div>
+      {error && <div className="text-red-500 mt-4">{error}</div>}
+    </main>
   );
 }

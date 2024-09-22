@@ -74,6 +74,15 @@ class OpenAIEngine(BaseEngine):
         self.model_name = config.get("model_name", "gpt-4o")
         self.embedding_model = "text-embedding-ada-002"
 
+    @property
+    def get_model_name(self):
+        return self.config.get("model_name", "gpt-4o")
+    
+    @get_model_name.setter
+    def set_model_name(self, value):
+        self.model_name = value
+        self.config.update({"model_name": value})
+
     def set_logits_processor(self, processor: OutlinesLogitsProcessor) -> None:
         """
         Set the logits processor for the OpenAI engine.
@@ -86,7 +95,7 @@ class OpenAIEngine(BaseEngine):
         """
         return self.logits_processor
 
-    async def generate_structured(self, prompt: str | List[str], structure: str | Dict | Any, config: Optional[OpenAIEngineConfig]=None, **kwargs) -> Coroutine[Any, Any, Any]:
+    async def generate_structured(self, prompt: str | List[str], structure: str | Dict | Any, messages: Optional[List[Dict[str, str]]]=None, config: Optional[OpenAIEngineConfig]=None, **kwargs) -> Coroutine[Any, Any, Any]:
         """
         Generate structured data from the OpenAI engine.
         """
@@ -119,7 +128,7 @@ class OpenAIEngine(BaseEngine):
         response_format = {"type": "json_object"}
 
         response = await self.client.chat.completions.create(
-            model="gpt-4o",
+            model=self.model_name,
             messages=messages,
             response_format=response_format,
             **kwargs

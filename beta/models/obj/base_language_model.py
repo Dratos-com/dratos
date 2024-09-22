@@ -7,7 +7,7 @@ import typing
 
 if typing.TYPE_CHECKING:
     pass
-from typing import Dict, List
+from typing import Dict, List, Optional
 from ..serve.engines.base_engine import BaseEngine
 from ..serve.engines.openai_engine import OpenAIEngine, OpenAIEngineConfig
 
@@ -100,6 +100,8 @@ class LLM(BaseLanguageModel):
     ):
         super().__init__(model_name, engine)
         self.config = config
+        self.engine = engine
+        self.engine.model_name = model_name
 
     async def initialize(self):
         self.engine.initialize(self.config)
@@ -118,7 +120,7 @@ class LLM(BaseLanguageModel):
         return await self.engine.generate(prompt, messages, **kwargs)
 
     async def generate_structured(
-        self, input: Input | str, structure: dict, messages: List[Dict[str, str]] = None, **kwargs
+        self, input: Input | str, structure: dict, messages: Optional[List[Dict[str, str]]] = None, **kwargs
     ) -> dict:
         if not self.is_initialized:
             await self.initialize()
@@ -126,7 +128,7 @@ class LLM(BaseLanguageModel):
             prompt = input
         else:
             prompt = input.to_text()
-        return await self.engine.generate_structured(prompt, structure, messages, **kwargs)
+        return await self.engine.generate_structured(prompt=prompt, structure=structure, messages=messages, **kwargs)
 
     @property
     def supported_tasks(self) -> List[str]:

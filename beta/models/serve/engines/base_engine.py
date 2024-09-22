@@ -46,7 +46,7 @@ class BaseEngine(ABC):
         prompt: Union[str, List[str]],
         structure: Union[str, Dict, pa.Schema],
         grammar: Optional[str] = None,
-        messages: List[Dict[str, str]] = None,
+        messages: Optional[List[Dict[str, str]]] = None,
         **kwargs,
     ) -> Any:
         """Generate structured output based on the given prompt and structure."""
