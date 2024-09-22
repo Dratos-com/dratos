@@ -10,6 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { GitCommit, ArrowLeft, ArrowRight, Clock, GitBranch, GitFork } from "lucide-react"
 import { createBranch, mergeBranches } from '@/lib/api';
+const API_BASE_URL = 'http://localhost:8998/api/v1'; // Adjust this to your actual API URL
 
 type Commit = {
   id: string
@@ -66,12 +67,12 @@ export const TimePortalConversations: React.FC<TimePortalConversationsProps> = (
   const [mergeTarget, setMergeTarget] = useState('');
 
   const fetchConversationHistory = async (conversationId: string) => {
-    const response = await axios.get(`http://localhost:8998/conversation/${conversationId}/history`);
+    const response = await axios.get(`${API_BASE_URL}/conversation/${conversationId}/history`);
     setConversationHistory(response.data);
   };
 
   const fetchBranches = async (conversationId: string) => {
-    const response = await axios.get(`http://localhost:8998/conversation/${conversationId}/branches`);
+    const response = await axios.get(`${API_BASE_URL}/conversation/${conversationId}/branches`);
     setBranches(response.data);
   };
 

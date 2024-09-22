@@ -405,14 +405,14 @@ class Agent:
         ]
 
     async def get_conversation_branches(self, conversation_id: str) -> List[str]:
-        return self.git_api.switch_branch(conversation_id)
+        return self.git_api.get_branches()
+
+    async def create_conversation_branch(self, branch_name: str):
+        self.git_api.create_branch(branch_name)
+        return await self.get_conversation_history(branch_name)
 
     async def switch_conversation_branch(self, branch_name: str):
         self.switch_memory_branch(branch_name)
-        return await self.get_conversation_history(branch_name)
-
-    async def create_conversation_branch(self, branch_name: str):
-        self.create_memory_branch(branch_name)
         return await self.get_conversation_history(branch_name)
 
     async def merge_conversation_branches(self, source_branch: str, target_branch: str):
@@ -424,17 +424,27 @@ class Agent:
         memories = self.memory_store.get_all_memories()
         conversation_memories = [m for m in memories if m.conversation_id == conversation_id]
         if len(conversation_memories) == 0:
-            # create a new branch
-            await self.create_conversation_branch(conversation_id)
+            # create a new branch if it doesn't exist
+            self.git_api.create_branch(conversation_id)
             conversation_memories = []
         
         paginated_memories = conversation_memories[skip:skip + limit]
         return {
             "id": conversation_id,
-            "memories": [
-                {"id": m.id, "content": m.content, "timestamp": m.timestamp}
-                for m in paginated_memories
-            ]
+            "commits": [
+                {
+                    "id": m.id,
+                    "message": m.content,
+                    "author": "User",  # You might want to store and use actual author information
+                    "timestamp": m.timestamp.isoformat(),
+                    "changes": {
+                        "added": [m.content],
+                        "removed": []
+                    }
+                } for m in paginated_memories
+            ],
+            "branches": self.git_api.get_branches(),
+            "forks": []  # Implement fork functionality if needed
         }
 
 

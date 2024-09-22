@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from typing import List, Dict
 from beta.agents.agent import Agent
 
@@ -10,51 +10,69 @@ def get_agent():
     return Agent(name="ConversationAgent", memory_db_uri="lancedb")
 
 
-@router.get("/{conversation_id}/history")
+@router.get("/conversation/{conversation_id}/history")
 async def get_conversation_history(
     conversation_id: str, agent: Agent = Depends(get_agent)
 ):
-    return await agent.get_conversation_history(conversation_id)
+    try:
+        return await agent.get_conversation_history(conversation_id)
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
-@router.get("/{conversation_id}/branches")
+@router.get("/conversation/{conversation_id}/branches")
 async def get_conversation_branches(
     conversation_id: str, agent: Agent = Depends(get_agent)
 ):
-    return await agent.get_conversation_branches(conversation_id)
+    try:
+        return await agent.get_conversation_branches(conversation_id)
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
-@router.post("/{conversation_id}/branch")
+@router.post("/conversation/{conversation_id}/branch")
 async def create_conversation_branch(
     conversation_id: str, branch_name: str, agent: Agent = Depends(get_agent)
 ):
-    return await agent.create_conversation_branch(branch_name)
+    try:
+        return await agent.create_conversation_branch(branch_name)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post("/{conversation_id}/switch-branch")
+@router.post("/conversation/{conversation_id}/switch-branch")
 async def switch_conversation_branch(
     conversation_id: str, branch_name: str, agent: Agent = Depends(get_agent)
 ):
-    return await agent.switch_conversation_branch(branch_name)
+    try:
+        return await agent.switch_conversation_branch(branch_name)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post("/{conversation_id}/merge-branches")
+@router.post("/conversation/{conversation_id}/merge-branches")
 async def merge_conversation_branches(
     conversation_id: str,
     source_branch: str,
     target_branch: str,
     agent: Agent = Depends(get_agent),
 ):
-    return await agent.merge_conversation_branches(source_branch, target_branch)
+    try:
+        return await agent.merge_conversation_branches(source_branch, target_branch)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.get("/{conversation_id}/page")
+@router.get("/conversation/{conversation_id}/page")
 async def get_conversation_page(
     conversation_id: str,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     agent: Agent = Depends(get_agent),
 ):
-    skip = (page - 1) * page_size
-    limit = page_size
-    return await agent.get_conversation_page(conversation_id, skip, limit)
+    try:
+        skip = (page - 1) * page_size
+        limit = page_size
+        return await agent.get_conversation_page(conversation_id, skip, limit)
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=str(e))
