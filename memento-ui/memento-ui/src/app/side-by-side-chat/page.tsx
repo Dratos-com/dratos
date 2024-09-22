@@ -81,19 +81,33 @@ export default function SideBySideChatPage() {
     
       const loadBranches = async () => {
         try {
+          console.log('Fetching branches...');
           const branchesData = await fetchBranches('initial');
-          setBranches(branchesData);
+          console.log('Branches data received:', branchesData);
+          if (Array.isArray(branchesData) && branchesData.length > 0) {
+            setBranches(branchesData);
+          } else {
+            console.log('No branches found or empty array returned');
+            setBranches([]);
+          }
         } catch (error) {
           console.error('Error loading branches:', error);
           setError('Failed to load branches');
+          setBranches([]);
         }
       };
     
       const handleCreateBranch = async (conversationId: string, newBranchId: string) => {
         try {
-          const latestCommit = conversations[conversationId].commits[conversations[conversationId].commits.length - 1];
+          console.log('Creating new branch:', newBranchId, 'for conversation:', conversationId);
+          const latestCommit = conversations[conversationId]?.commits?.length > 0
+            ? conversations[conversationId].commits[conversations[conversationId].commits.length - 1]
+            : { id: 'initial' };
+
           await createBranch(conversationId, newBranchId, latestCommit.id);
+          console.log('Branch created successfully');
           await loadBranches();
+          
           // Initialize the new conversation branch
           setConversations(prev => ({
             ...prev,

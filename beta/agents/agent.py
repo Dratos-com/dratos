@@ -432,8 +432,22 @@ class Agent:
             print(f"Error fetching conversation history: {e}")
             return []
 
-    async def get_conversation_branches(self, conversation_id: str) -> List[str]:
-        return self.git_api.get_branches()
+    async def get_conversation_branches(self, conversation_id: str) -> List[Dict[str, Any]]:
+        try:
+            heads = self.git_api.get_branches()
+            for head in heads:
+                print(f"Branch: {head.name}")
+            return [
+                {
+                    "name": branch.name,
+                    "commit_id": branch.commit.hexsha,
+                    "last_modified": branch.commit.committed_datetime.isoformat(),
+                }
+                for branch in heads
+            ]
+        except Exception as e:
+            print(f"Error retrieving conversation branches: {e}")
+            raise
 
     async def create_conversation_branch(self, conversation_id: str, new_branch_id: str, commit_id: str):
         try:

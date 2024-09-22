@@ -10,6 +10,7 @@ interface Conversation {
   children: Conversation[];
   position: [number, number, number];
   color: string;
+  branchId: string;
 }
 
 interface MementoFractals3DProps {
@@ -19,6 +20,7 @@ interface MementoFractals3DProps {
 const MementoFractals3D: React.FC<MementoFractals3DProps> = ({ conversationHistory }) => {
   const mountRef = useRef<HTMLDivElement>(null);
   const [hoveredNode, setHoveredNode] = useState<Conversation | null>(null);
+  const [selectedNode, setSelectedNode] = useState<Conversation | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -42,10 +44,27 @@ const MementoFractals3D: React.FC<MementoFractals3DProps> = ({ conversationHisto
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controlsRef.current = controls;
-    camera.position.z = 15;
+    camera.position.set(0, 0, 50);
+    controls.update();
 
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
+
+    // Position nodes in 3D space
+    const positionNodes = (conversations: Conversation[], startAngle = 0, radius = 10, y = 0) => {
+      const angleStep = (2 * Math.PI) / conversations.length;
+      conversations.forEach((conversation, index) => {
+        const angle = startAngle + index * angleStep;
+        conversation.position = [
+          radius * Math.cos(angle),
+          y,
+          radius * Math.sin(angle)
+        ];
+        if (conversation.children.length > 0) {
+          positionNodes(conversation.children, angle, radius * 0.8, y - 5);
+        }
+      });
+    };
 
     // Create conversation nodes
     const createNode = (conversation: Conversation, parent?: THREE.Vector3) => {
@@ -92,6 +111,7 @@ const MementoFractals3D: React.FC<MementoFractals3DProps> = ({ conversationHisto
       });
     };
 
+    positionNodes(conversationHistory);
     conversationHistory.forEach(conversation => createNode(conversation));
 
     // Add lighting
@@ -183,6 +203,9 @@ const MementoFractals3D: React.FC<MementoFractals3DProps> = ({ conversationHisto
 
         if (progress < 1) {
           requestAnimationFrame(animateCamera);
+        } else {
+          // When animation is complete, set the selected node
+          setSelectedNode(conversation);
         }
       };
 
@@ -192,6 +215,7 @@ const MementoFractals3D: React.FC<MementoFractals3DProps> = ({ conversationHisto
 
   const handleZoomOut = () => {
     if (cameraRef.current && controlsRef.current && sceneRef.current) {
+      setSelectedNode(null); // Clear the selected node when zooming out
       const box = new THREE.Box3().setFromObject(sceneRef.current);
       const center = box.getCenter(new THREE.Vector3());
       const size = box.getSize(new THREE.Vector3());
@@ -259,6 +283,25 @@ const MementoFractals3D: React.FC<MementoFractals3DProps> = ({ conversationHisto
   return (
     <div style={{ position: 'relative', width: '100%', height: '100vh' }}>
       <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
+      {selectedNode && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          backgroundColor: 'white',
+          color: 'black',
+          padding: '20px',
+          overflowY: 'auto',
+          zIndex: 1000
+        }}>
+          <h2>{selectedNode.id}</h2>
+          <p>{selectedNode.content}</p>
+          <p>Branch: {selectedNode.branchId}</p>
+          <button onClick={() => setSelectedNode(null)}>Close</button>
+        </div>
+      )}
       <button
         onClick={handleZoomOut}
         style={{
@@ -275,7 +318,7 @@ const MementoFractals3D: React.FC<MementoFractals3DProps> = ({ conversationHisto
       >
         Zoom Out
       </button>
-      {hoveredNode && (
+      {hoveredNode && !selectedNode && (
         <div style={{
           position: 'absolute',
           bottom: '20px',
@@ -288,6 +331,7 @@ const MementoFractals3D: React.FC<MementoFractals3DProps> = ({ conversationHisto
         }}>
           <h3>{hoveredNode.content}</h3>
           <p>ID: {hoveredNode.id}</p>
+          <p>Branch: {hoveredNode.branchId}</p>
         </div>
       )}
     </div>

@@ -78,4 +78,4 @@ class GitAPI:
         self.repo.git.checkout(commit_hash)
 
     def get_branches(self):
-        return [head.name for head in self.repo.heads]
+        return self.repo.heads

@@ -83,9 +83,10 @@ async def get_conversation_branches(
     conversation_id: str, agent: Agent = Depends(get_agent)
 ):
     try:
-        return await agent.get_conversation_branches(conversation_id)
+        branches = await agent.get_conversation_branches(conversation_id)
+        return branches
     except Exception as e:
-        raise HTTPException(status_code=404, detail=str(e)) from e
+        raise HTTPException(status_code=404, detail=str(e))
 
 @router.post("/conversation/{conversation_id}/switch-branch")
 async def switch_conversation_branch(
