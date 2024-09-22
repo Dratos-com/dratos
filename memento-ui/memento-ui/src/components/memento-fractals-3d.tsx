@@ -20,6 +20,9 @@ const MementoFractals3D: React.FC<MementoFractals3DProps> = ({ conversationHisto
   const mountRef = useRef<HTMLDivElement>(null);
   const [hoveredNode, setHoveredNode] = useState<Conversation | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
+  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+  const sceneRef = useRef<THREE.Scene | null>(null);
+  const textLabelsRef = useRef<THREE.Sprite[]>([]);
 
   useEffect(() => {
     if (!mountRef.current) return;
@@ -29,8 +32,10 @@ const MementoFractals3D: React.FC<MementoFractals3DProps> = ({ conversationHisto
     const height = mountRef.current.clientHeight;
 
     const scene = new THREE.Scene();
+    sceneRef.current = scene;
     scene.background = new THREE.Color(0x111111);
     const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+    cameraRef.current = camera;
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(width, height);
     mountRef.current.appendChild(renderer.domElement);
@@ -39,31 +44,37 @@ const MementoFractals3D: React.FC<MementoFractals3DProps> = ({ conversationHisto
     controlsRef.current = controls;
     camera.position.z = 15;
 
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
     // Create conversation nodes
     const createNode = (conversation: Conversation, parent?: THREE.Vector3) => {
       const geometry = new THREE.SphereGeometry(0.5, 32, 32);
       const material = new THREE.MeshPhongMaterial({ color: conversation.color });
       const sphere = new THREE.Mesh(geometry, material);
       sphere.position.set(...conversation.position);
+      sphere.userData = conversation;
       scene.add(sphere);
 
-      // Add text to sphere
+      // Create text sprite
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
+      canvas.width = 256;
+      canvas.height = 256;
       if (context) {
-        canvas.width = 256;
-        canvas.height = 256;
-        context.fillStyle = '#ffffff';
-        context.font = '24px Arial';
-        context.textAlign = 'center';
-        context.fillText(conversation.content.substring(0, 20), 128, 128);
+        context.font = 'Bold 20px Arial';
+        context.fillStyle = 'rgba(255,255,255,0.95)';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.fillStyle = 'black';
+        wrapText(context, conversation.content, 10, 30, 236, 25);
       }
       const texture = new THREE.CanvasTexture(canvas);
-      const textMaterial = new THREE.MeshBasicMaterial({ map: texture, transparent: true });
-      const textGeometry = new THREE.PlaneGeometry(1, 1);
-      const textMesh = new THREE.Mesh(textGeometry, textMaterial);
-      textMesh.position.set(0, 0, 0.51); // Slightly in front of the sphere
-      sphere.add(textMesh);
+      const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
+      const sprite = new THREE.Sprite(spriteMaterial);
+      sprite.scale.set(2, 2, 1);
+      sprite.position.set(sphere.position.x, sphere.position.y + 1, sphere.position.z);
+      scene.add(sprite);
+      textLabelsRef.current.push(sprite);
 
       // Add line to parent
       if (parent) {
@@ -75,11 +86,6 @@ const MementoFractals3D: React.FC<MementoFractals3DProps> = ({ conversationHisto
         const line = new THREE.Line(lineGeometry, lineMaterial);
         scene.add(line);
       }
-
-      // Add hover effect
-      sphere.userData = conversation;
-      sphere.addEventListener('pointerover', () => setHoveredNode(conversation));
-      sphere.addEventListener('pointerout', () => setHoveredNode(null));
 
       conversation.children.forEach((child) => {
         createNode(child, new THREE.Vector3(...conversation.position));
@@ -95,9 +101,6 @@ const MementoFractals3D: React.FC<MementoFractals3DProps> = ({ conversationHisto
     pointLight.position.set(10, 10, 10);
     scene.add(pointLight);
 
-    const raycaster = new THREE.Raycaster();
-    const mouse = new THREE.Vector2();
-
     const onMouseMove = (event: MouseEvent) => {
       mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
       mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
@@ -108,7 +111,7 @@ const MementoFractals3D: React.FC<MementoFractals3DProps> = ({ conversationHisto
       if (intersects.length > 0) {
         const object = intersects[0].object;
         if (object.userData && object.userData.content) {
-          setHoveredNode(object.userData);
+          setHoveredNode(object.userData as Conversation);
         } else {
           setHoveredNode(null);
         }
@@ -117,11 +120,28 @@ const MementoFractals3D: React.FC<MementoFractals3DProps> = ({ conversationHisto
       }
     };
 
+    const onClick = (event: MouseEvent) => {
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(scene.children, true);
+
+      if (intersects.length > 0) {
+        const object = intersects[0].object;
+        if (object.userData && object.userData.content) {
+          handleNodeClick(object.userData as Conversation);
+        }
+      }
+    };
+
     window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('click', onClick);
 
     const animate = () => {
       requestAnimationFrame(animate);
       controls.update();
+      updateTextVisibility();
       renderer.render(scene, camera);
     };
 
@@ -137,38 +157,124 @@ const MementoFractals3D: React.FC<MementoFractals3DProps> = ({ conversationHisto
 
     window.addEventListener('resize', handleResize);
 
-    // Keyboard controls
-    const handleKeyDown = (event: KeyboardEvent) => {
-      const speed = 0.5;
-      switch (event.key) {
-        case 'ArrowUp':
-          camera.position.y += speed;
-          break;
-        case 'ArrowDown':
-          camera.position.y -= speed;
-          break;
-        case 'ArrowLeft':
-          camera.position.x -= speed;
-          break;
-        case 'ArrowRight':
-          camera.position.x += speed;
-          break;
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-
     return () => {
       window.removeEventListener('resize', handleResize);
-      window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('click', onClick);
       mountRef.current?.removeChild(renderer.domElement);
     };
   }, [conversationHistory]);
 
+  const handleNodeClick = (conversation: Conversation) => {
+    if (cameraRef.current && controlsRef.current) {
+      const targetPosition = new THREE.Vector3(...conversation.position);
+      const duration = 1000; // Duration of the animation in milliseconds
+      const startPosition = cameraRef.current.position.clone();
+      const startTime = Date.now();
+
+      const animateCamera = () => {
+        const now = Date.now();
+        const progress = Math.min((now - startTime) / duration, 1);
+        const easeProgress = progress * (2 - progress); // Ease out quadratic
+
+        cameraRef.current!.position.lerpVectors(startPosition, targetPosition, easeProgress);
+        cameraRef.current!.lookAt(targetPosition);
+        controlsRef.current!.target.copy(targetPosition);
+
+        if (progress < 1) {
+          requestAnimationFrame(animateCamera);
+        }
+      };
+
+      animateCamera();
+    }
+  };
+
+  const handleZoomOut = () => {
+    if (cameraRef.current && controlsRef.current && sceneRef.current) {
+      const box = new THREE.Box3().setFromObject(sceneRef.current);
+      const center = box.getCenter(new THREE.Vector3());
+      const size = box.getSize(new THREE.Vector3());
+
+      const maxDim = Math.max(size.x, size.y, size.z);
+      const fov = cameraRef.current.fov * (Math.PI / 180);
+      let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2));
+
+      cameraZ *= 1.5; // Zoom out a bit more to ensure everything is in view
+
+      const duration = 1000; // Duration of the animation in milliseconds
+      const startPosition = cameraRef.current.position.clone();
+      const targetPosition = center.clone().add(new THREE.Vector3(0, 0, cameraZ));
+      const startTime = Date.now();
+
+      const animateCamera = () => {
+        const now = Date.now();
+        const progress = Math.min((now - startTime) / duration, 1);
+        const easeProgress = progress * (2 - progress); // Ease out quadratic
+
+        cameraRef.current!.position.lerpVectors(startPosition, targetPosition, easeProgress);
+        controlsRef.current!.target.copy(center);
+
+        if (progress < 1) {
+          requestAnimationFrame(animateCamera);
+        } else {
+          cameraRef.current!.lookAt(center);
+          controlsRef.current!.update();
+        }
+      };
+
+      animateCamera();
+    }
+  };
+
+  const updateTextVisibility = () => {
+    if (cameraRef.current) {
+      textLabelsRef.current.forEach((sprite) => {
+        const distance = cameraRef.current!.position.distanceTo(sprite.position);
+        const opacity = Math.max(0, Math.min(1, 2 - distance / 10));
+        (sprite.material as THREE.SpriteMaterial).opacity = opacity;
+      });
+    }
+  };
+
+  const wrapText = (context: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number, lineHeight: number) => {
+    const words = text.split(' ');
+    let line = '';
+
+    for (let n = 0; n < words.length; n++) {
+      const testLine = line + words[n] + ' ';
+      const metrics = context.measureText(testLine);
+      const testWidth = metrics.width;
+      if (testWidth > maxWidth && n > 0) {
+        context.fillText(line, x, y);
+        line = words[n] + ' ';
+        y += lineHeight;
+      } else {
+        line = testLine;
+      }
+    }
+    context.fillText(line, x, y);
+  };
+
   return (
     <div style={{ position: 'relative', width: '100%', height: '100vh' }}>
       <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
+      <button
+        onClick={handleZoomOut}
+        style={{
+          position: 'absolute',
+          bottom: '20px',
+          right: '20px',
+          padding: '10px 20px',
+          backgroundColor: '#4CAF50',
+          color: 'white',
+          border: 'none',
+          borderRadius: '5px',
+          cursor: 'pointer'
+        }}
+      >
+        Zoom Out
+      </button>
       {hoveredNode && (
         <div style={{
           position: 'absolute',
