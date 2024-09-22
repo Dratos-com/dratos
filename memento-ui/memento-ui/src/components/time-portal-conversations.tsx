@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { GitCommit, ArrowLeft, ArrowRight, Clock, GitBranch, GitFork } from "lucide-react"
+import { createBranch, mergeBranches } from '@/lib/api';
 
 type Commit = {
   id: string
@@ -46,55 +47,64 @@ type Conversation = {
 interface TimePortalConversationsProps {
   conversationId: string;
   conversation: {
-    commits: any[];
-    branches: any[];
-    forks: any[];
+    id: string;
+    commits: Commit[];
+    branches: Branch[];
+    forks: ForkEntry[];
   };
   currentCommitIndex: number;
+  onTimeTravel: (direction: 'back' | 'forward') => void;
+  onRefresh: () => void;
 }
 
-export const TimePortalConversations: React.FC<TimePortalConversationsProps> = ({ conversationId, conversation, currentCommitIndex }) => {
+export const TimePortalConversations: React.FC<TimePortalConversationsProps> = ({ conversationId, conversation, currentCommitIndex, onTimeTravel, onRefresh }) => {
   const [conversationHistory, setConversationHistory] = useState([]);
   const [branches, setBranches] = useState([]);
   const [currentBranch, setCurrentBranch] = useState('main');
   const [newBranchName, setNewBranchName] = useState('');
+  const [mergeSource, setMergeSource] = useState('');
+  const [mergeTarget, setMergeTarget] = useState('');
 
   const fetchConversationHistory = async (conversationId: string) => {
-    const response = await axios.get(`/api/conversation/${conversationId}/history`);
+    const response = await axios.get(`http://localhost:8998/conversation/${conversationId}/history`);
     setConversationHistory(response.data);
   };
 
   const fetchBranches = async (conversationId: string) => {
-    const response = await axios.get(`/api/conversation/${conversationId}/branches`);
+    const response = await axios.get(`http://localhost:8998/conversation/${conversationId}/branches`);
     setBranches(response.data);
   };
 
-  const createBranch = async (conversationId: string, branchName: string) => {
-    await axios.post(`/api/conversation/${conversationId}/branch`, { branch_name: branchName });
-    fetchBranches(conversationId);
+  const handleCreateBranch = async () => {
+    try {
+      await createBranch(conversationId, newBranchName, conversation.commits[currentCommitIndex].id);
+      fetchBranches(conversationId);
+      onRefresh(); // Refresh the conversation data after creating a branch
+    } catch (error) {
+      console.error('Error creating branch:', error);
+      // Implement user feedback for error (e.g., using a toast notification)
+    }
+  };
+
+  const handleMergeBranches = async () => {
+    try {
+      await mergeBranches(conversationId, mergeSource, mergeTarget);
+      fetchBranches(conversationId);
+      onRefresh(); // Refresh the conversation data after merging branches
+    } catch (error) {
+      console.error('Error merging branches:', error);
+      // Implement user feedback for error (e.g., using a toast notification)
+    }
   };
 
   const switchBranch = async (conversationId: string, branchName: string) => {
-    const response = await axios.post(`/api/conversation/${conversationId}/switch-branch`, { branch_name: branchName });
+    const response = await axios.post(`http://localhost:8998/conversation/${conversationId}/switch-branch`, { branch_name: branchName });
     setConversationHistory(response.data);
     setCurrentBranch(branchName);
   };
 
-  const mergeBranches = async (conversationId: string, sourceBranch: string, targetBranch: string) => {
-    const response = await axios.post(`/api/conversation/${conversationId}/merge-branches`, {
-      source_branch: sourceBranch,
-      target_branch: targetBranch
-    });
-    setConversationHistory(response.data);
-    fetchBranches(conversationId);
-  };
-
   const handleTimeTravel = (direction: 'back' | 'forward') => {
-    // Implement time travel logic here
-    console.log('Time travel:', direction);
-    setCurrentCommitIndex(direction === 'back' ? currentCommitIndex - 1 : currentCommitIndex + 1);
-    console.log('Current commit index:', currentCommitIndex);
-    
+    onTimeTravel(direction);
   };
 
   useEffect(() => {
@@ -158,7 +168,7 @@ export const TimePortalConversations: React.FC<TimePortalConversationsProps> = (
                 </div>
               </div>
               <div className="space-y-2">
-                {conversation.commits[currentCommitIndex].changes.added.map((change, index) => (
+                {conversation.commits[currentCommitIndex].changes.added.map((change: string, index: number) => (
                   <motion.div
                     key={`added-${index}`}
                     initial={{ opacity: 0, x: -20 }}
@@ -169,7 +179,7 @@ export const TimePortalConversations: React.FC<TimePortalConversationsProps> = (
                     <span className="text-green-800 dark:text-green-200">+ {change}</span>
                   </motion.div>
                 ))}
-                {conversation.commits[currentCommitIndex].changes.removed.map((change, index) => (
+                {conversation.commits[currentCommitIndex].changes.removed.map((change: string, index: number) => (
                   <motion.div
                     key={`removed-${index}`}
                     initial={{ opacity: 0, x: -20 }}
@@ -267,6 +277,33 @@ export const TimePortalConversations: React.FC<TimePortalConversationsProps> = (
           </Table>
         </CardContent>
       </Card>
+      <div className="mt-4">
+        <input
+          type="text"
+          value={newBranchName}
+          onChange={(e) => setNewBranchName(e.target.value)}
+          placeholder="New branch name"
+          className="border p-2 mr-2"
+        />
+        <Button onClick={handleCreateBranch}>Create Branch</Button>
+      </div>
+      <div className="mt-4">
+        <input
+          type="text"
+          value={mergeSource}
+          onChange={(e) => setMergeSource(e.target.value)}
+          placeholder="Source branch"
+          className="border p-2 mr-2"
+        />
+        <input
+          type="text"
+          value={mergeTarget}
+          onChange={(e) => setMergeTarget(e.target.value)}
+          placeholder="Target branch"
+          className="border p-2 mr-2"
+        />
+        <Button onClick={handleMergeBranches}>Merge Branches</Button>
+      </div>
     </div>
   )
 }

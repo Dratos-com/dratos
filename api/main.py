@@ -5,11 +5,18 @@ import typing
 if typing.TYPE_CHECKING:
     pass
 from fastapi import FastAPI
-
+from fastapi.middleware.cors import CORSMiddleware
 from api.config import Config
 
 
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3002"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Configured Through ENV Vars in .env
 config = Config.get_instance().load_config()

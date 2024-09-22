@@ -148,7 +148,7 @@ class Agent:
         engine: Optional[BaseEngine] = None,
         artifacts: Optional[List[DataFrame]] = None,
         memory: Optional[List[DataFrame]] = None,
-        memory_db_uri: Optional[str] = None,
+        memory_db_uri: Optional[str] = "lancedb",
         git_repo_path: Optional[str] = None,
         is_async: bool = False,
         memory_store=None,
@@ -176,7 +176,7 @@ class Agent:
             .create(name="BAAI/bge-small-en-v1.5")
         )
         self.memory_store = memory_store or LanceDBMemoryStore()
-        self.git_api = git_api or GitAPI()
+        self.git_api = GitAPI(memory_db_uri)
 
     async def process(
         self,
@@ -405,7 +405,7 @@ class Agent:
         ]
 
     async def get_conversation_branches(self, conversation_id: str) -> List[str]:
-        return self.git_api.get_branches()
+        return self.git_api.switch_branch(conversation_id)
 
     async def switch_conversation_branch(self, branch_name: str):
         self.switch_memory_branch(branch_name)
@@ -419,6 +419,24 @@ class Agent:
         self.git_api.merge_branches(source_branch, target_branch)
         self._reload_memories()
         return await self.get_conversation_history(target_branch)
+
+    async def get_conversation_page(self, conversation_id: str, skip: int, limit: int) -> Dict:
+        memories = self.memory_store.get_all_memories()
+        conversation_memories = [m for m in memories if m.conversation_id == conversation_id]
+        if len(conversation_memories) == 0:
+            # create a new branch
+            await self.create_conversation_branch(conversation_id)
+            conversation_memories = []
+        
+        paginated_memories = conversation_memories[skip:skip + limit]
+        return {
+            "id": conversation_id,
+            "memories": [
+                {"id": m.id, "content": m.content, "timestamp": m.timestamp}
+                for m in paginated_memories
+            ]
+        }
+
 
 
 __all__ = ["Agent", "AgentStatus", "ToolInterface", "Prompt", "Message", "Metadata"]
