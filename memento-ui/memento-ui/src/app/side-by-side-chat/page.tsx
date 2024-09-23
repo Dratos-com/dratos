@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Button } from "@/components/ui/button";
 import { SideBySideChatViewer } from "@/components/side-by-side-chat-viewer";
 import { fetchConversationPage, createBranch, mergeBranches, sendMessage, editMessage, fetchBranches } from '@/lib/api';
+
 interface Conversation {
     id: string;
     commits: any[];
@@ -153,6 +154,7 @@ export default function SideBySideChatPage() {
               },
             };
           });
+          return newMessage; // Ensure the new message is returned
         } catch (error) {
           console.error('Error sending message:', error);
           setError('Failed to send message');

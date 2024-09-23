@@ -8,7 +8,10 @@ class GitAPI:
             os.makedirs(repo_path)
             self.repo = git.Repo.init(repo_path)
         else:
-            self.repo = git.Repo(repo_path)
+            try:
+                self.repo = git.Repo(repo_path)
+            except git.exc.InvalidGitRepositoryError:
+                self.repo = git.Repo.init(repo_path)
 
     def commit_memory(self, message):
         self.repo.git.add(A=True)

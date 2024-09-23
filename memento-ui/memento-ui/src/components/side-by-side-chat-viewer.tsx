@@ -33,7 +33,7 @@ type Branch = {
 type SideBySideChatViewerProps = {
   onCreateBranch: (conversationId: string, newBranchId: string) => Promise<void>
   onMergeBranches: (sourceBranch: string, targetBranch: string) => Promise<void>
-  onSendMessage: (conversationId: string, content: string, sender: 'user' | 'ai') => Promise<void>
+  onSendMessage: (conversationId: string, content: string, sender: 'user' | 'ai') => Promise<Message>
   onEditMessage: (conversationId: string, messageId: string, newContent: string) => Promise<void>
 }
 
@@ -105,19 +105,39 @@ export function SideBySideChatViewer({
   };
 
   const handleSendMessage = async (conversationId: string) => {
-    try {
-      const userMessage = await onSendMessage(conversationId, newMessage, 'user');
-      setNewMessage('');
-      setConversations(prev => ({
-        ...prev,
-        [conversationId]: {
-          ...prev[conversationId],
-          messages: [...prev[conversationId].messages, userMessage],
-        },
-      }));
+    if (!newMessage.trim()) return;
 
+    const userMessage = {
+      id: ulid(),
+      content: newMessage,
+      sender: 'user',
+      timestamp: new Date().toISOString(),
+    };
+
+    // Update the conversation with the new user message
+    setConversations(prev => ({
+      ...prev,
+      [conversationId]: {
+        ...prev[conversationId],
+        messages: [
+          ...prev[conversationId].messages,
+          {
+            id: userMessage.id,
+            content: userMessage.content,
+            sender: "user", // Ensure sender is either "user" or "ai"
+            timestamp: userMessage.timestamp
+          }
+        ]
+      }
+    }));
+
+    setNewMessage('');
+
+    try {
       // Send the message to the agent and get the response
       const agentMessage = await onSendMessage(conversationId, newMessage, 'ai');
+
+      // Update the conversation with the agent's response
       setConversations(prev => ({
         ...prev,
         [conversationId]: {
@@ -202,7 +222,7 @@ export function SideBySideChatViewer({
     if (!conversation) return null
 
     return (
-      <Card className="flex flex-col h-full">
+      <Card key={conversationId} className="flex flex-col h-full">
         <CardHeader>
           <CardTitle className="flex justify-between items-center">
             Conversation {conversation.id}

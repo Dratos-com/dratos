@@ -1,18 +1,57 @@
-from fastapi import APIRouter, Depends, Query, HTTPException, Body
+import os
+from fastapi import FastAPI, APIRouter, Depends, Query, HTTPException, Body
+from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Dict, Optional
-from beta.agents.agent import Agent
+from beta.agents.agent import Agent  # Ensure this module is correctly installed and accessible
 from pydantic import BaseModel
 import logging
 from datetime import datetime
+from dotenv import load_dotenv
+from beta.models.serve.engines.openai_engine import OpenAIEngine, OpenAIEngineConfig
+
+app = FastAPI()
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Adjust this to the specific origins you want to allow
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 logger = logging.getLogger("uvicorn.error")
 
 router = APIRouter()
 
+load_dotenv()
+
+api_key = os.environ["OPENAI_API_KEY"]
+
 
 def get_agent():
     # Initialize and return your Agent instance
-    return Agent(name="ConversationAgent", memory_db_uri="lancedb")
+    oai_config = OpenAIEngineConfig(data={
+        "api_key": api_key,
+        "base_url": "https://api.openai.com/v1",
+        "model_name": "gpt-4o",
+        "temperature": 0.7,
+        "max_tokens": 2048,
+        "top_p": 1,
+        "frequency_penalty": 0,
+        "presence_penalty": 0
+    })
+
+    # Initialize the OpenAI engine
+    openai_engine = OpenAIEngine(config=oai_config)
+
+    # Ensure the paths are correct
+    memory_db_uri = "./memory/lancedb"
+    git_repo_path = "./memory/memories_repo"
+
+    # Initialize the Agent with the correct paths
+    agent = Agent(name="ConversationAgent", memory_db_uri=memory_db_uri, git_repo_path=git_repo_path, is_async=True, engine=openai_engine)
+    return agent
 
 
 class MessageCreate(BaseModel):
@@ -207,3 +246,5 @@ async def send_message(
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+
+app.include_router(router)
