@@ -2,12 +2,17 @@ import os
 from fastapi import FastAPI, APIRouter, Depends, Query, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Dict, Optional
-from beta.agents.agent import Agent  # Ensure this module is correctly installed and accessible
-from pydantic import BaseModel
+from beta.agents.agent import (
+    Agent,
+)  # Ensure this module is correctly installed and accessible
+from pydantic import BaseModel, Field
 import logging
 from datetime import datetime
 from dotenv import load_dotenv
 from beta.models.serve.engines.openai_engine import OpenAIEngine, OpenAIEngineConfig
+import traceback
+from pydantic import ValidationError
+import numpy as np
 
 app = FastAPI()
 
@@ -31,16 +36,18 @@ api_key = os.environ["OPENAI_API_KEY"]
 
 def get_agent():
     # Initialize and return your Agent instance
-    oai_config = OpenAIEngineConfig(data={
-        "api_key": api_key,
-        "base_url": "https://api.openai.com/v1",
-        "model_name": "gpt-4o",
-        "temperature": 0.7,
-        "max_tokens": 2048,
-        "top_p": 1,
-        "frequency_penalty": 0,
-        "presence_penalty": 0
-    })
+    oai_config = OpenAIEngineConfig(
+        data={
+            "api_key": api_key,
+            "base_url": "https://api.openai.com/v1",
+            "model_name": "gpt-4o",
+            "temperature": 0.7,
+            "max_tokens": 2048,
+            "top_p": 1,
+            "frequency_penalty": 0,
+            "presence_penalty": 0,
+        }
+    )
 
     # Initialize the OpenAI engine
     openai_engine = OpenAIEngine(config=oai_config)
@@ -50,7 +57,13 @@ def get_agent():
     git_repo_path = "./memory/memories_repo"
 
     # Initialize the Agent with the correct paths
-    agent = Agent(name="ConversationAgent", memory_db_uri=memory_db_uri, git_repo_path=git_repo_path, is_async=True, engine=openai_engine)
+    agent = Agent(
+        name="ConversationAgent",
+        memory_db_uri=memory_db_uri,
+        git_repo_path=git_repo_path,
+        is_async=True,
+        engine=openai_engine,
+    )
     return agent
 
 
@@ -103,6 +116,8 @@ class PostCreate(BaseModel):
     author: str
     timePoint: str
     tags: str
+    parent_id: Optional[str] = None
+    version: float = Field(default=1.0, description="Version of the post as a float32")
 
 
 class CommentCreate(BaseModel):
@@ -116,14 +131,23 @@ class Vote(BaseModel):
 
 class Post(BaseModel):
     id: str
-    title: str
-    content: str
+    title: Optional[str]
+    content: Optional[str]
     author: str
     timestamp: str
-    upvotes: int
-    downvotes: int
-    comments: int
-    branches: int
+    upvotes: int = 0
+    downvotes: int = 0
+    comments: int = 0
+    branches: int = 0
+    timePoint: Optional[str] = ""
+    tags: Optional[str] = ""
+    parent_id: Optional[str] = None
+    version: float = Field(default=1.0, description="Version of the post as a float32")
+
+    class Config:
+        json_encoders = {
+            np.float32: lambda v: float(v)  # Convert numpy.float32 to Python float
+        }
 
 
 @router.post("/conversation/{conversation_id}/branch", response_model=BranchResponse)
@@ -259,12 +283,16 @@ async def edit_message(
         raise HTTPException(status_code=400, detail=str(e)) from e
 
 
-@router.post("/conversation/{conversation_id}/send-message", response_model=MessageResponse)
+@router.post(
+    "/conversation/{conversation_id}/send-message", response_model=MessageResponse
+)
 async def send_message(
     conversation_id: str, message: MessageCreate, agent: Agent = Depends(get_agent)
 ):
     try:
-        agent_message = await agent.process_message(conversation_id, message.content, message.sender)
+        agent_message = await agent.process_message(
+            conversation_id, message.content, message.sender
+        )
         return MessageResponse(
             id=agent_message["id"],
             content=agent_message["content"],
@@ -280,28 +308,40 @@ async def send_message(
 @router.get("/posts", response_model=List[Post])
 async def get_posts(agent: Agent = Depends(get_agent)):
     try:
-        # Fetch posts from the agent's storage
         raw_posts = await agent.get_all_posts()
+        print(f"Raw posts: {raw_posts}")
         
-        # Convert raw posts to the Post model
         posts = []
         for raw_post in raw_posts:
-            post = Post(
-                id=raw_post['id'],
-                title=raw_post['title'],
-                content=raw_post['content'],
-                author=raw_post['author'],
-                timestamp=raw_post['timestamp'],
-                upvotes=raw_post['upvotes'],
-                downvotes=raw_post['downvotes'],
-                comments=len(raw_post.get('comments', [])),
-                branches=len(raw_post.get('branches', []))
-            )
-            posts.append(post)
-        
+            try:
+                post = Post(
+                    id=raw_post["id"],
+                    title=raw_post.get("title"),
+                    content=raw_post.get("content"),
+                    author=raw_post["author"],
+                    timestamp=raw_post["timestamp"],
+                    upvotes=raw_post.get("upvotes", 0),
+                    downvotes=raw_post.get("downvotes", 0),
+                    comments=len(raw_post.get("comments", [])),
+                    branches=len(raw_post.get("branches", [])),
+                    timePoint=raw_post.get("timePoint", ""),
+                    tags=raw_post.get("tags", ""),
+                    parent_id=raw_post.get("parent_id"),
+                    version=np.float32(raw_post.get("version", 1.0))  # Convert to numpy.float32
+                )
+                posts.append(post)
+            except ValidationError as ve:
+                print(f"Validation error for post {raw_post.get('id', 'unknown')}: {ve}")
+            except Exception as e:
+                print(f"Error processing post {raw_post.get('id', 'unknown')}: {str(e)}")
+
         return posts
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching posts: {str(e)}") from e
+        print(f"Error fetching posts: {str(e)}")
+        print(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(
+            status_code=500, detail=f"Error fetching posts: {str(e)}"
+        ) from e
 
 
 @router.get("/posts/{post_id}")
@@ -315,35 +355,42 @@ async def get_post(post_id: str, agent: Agent = Depends(get_agent)):
 @router.post("/posts", response_model=Post)
 async def create_post(post: PostCreate, agent: Agent = Depends(get_agent)):
     try:
-        print(f"Received post data: {post}")  # Add this line
+        print(f"Received post data: {post}")
         new_post = await agent.create_post(
             post.title,
             post.content,
             post.author,
             post.timePoint,
-            post.tags
+            post.tags,
+            post.parent_id,
+            np.float32(post.version)  # Convert to numpy.float32
         )
-        # Convert the new_post dictionary to match the Post model
         post_response = Post(
-            id=new_post['id'],
-            title=new_post['title'],
-            content=new_post['content'],
-            author=new_post['author'],
-            timestamp=new_post['timestamp'],
-            upvotes=new_post['upvotes'],
-            downvotes=new_post['downvotes'],
-            comments=len(new_post['comments']),  # Convert list to count
-            branches=len(new_post['branches'])   # Convert list to count
+            id=new_post["id"],
+            title=new_post["title"],
+            content=new_post["content"],
+            author=new_post["author"],
+            timestamp=new_post["timestamp"].isoformat(),
+            upvotes=new_post["upvotes"],
+            downvotes=new_post["downvotes"],
+            comments=len(new_post["comments"]),
+            branches=len(new_post["branches"]),
+            timePoint=new_post["timePoint"],
+            tags=new_post["tags"],
+            parent_id=new_post.get("parent_id"),
+            version=np.float32(new_post.get("version", 1.0))  # Convert to numpy.float32
         )
-        print(f"Created new post: {post_response}")  # Add this line
+        print(f"Created new post: {post_response}")
         return post_response
     except Exception as e:
-        print(f"Error creating post: {str(e)}")  # Add this line
+        print(f"Error creating post: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/posts/{post_id}/comments")
-async def add_comment(post_id: str, comment: CommentCreate, agent: Agent = Depends(get_agent)):
+async def add_comment(
+    post_id: str, comment: CommentCreate, agent: Agent = Depends(get_agent)
+):
     try:
         return await agent.add_comment(post_id, comment.content, comment.author)
     except Exception as e:
@@ -359,7 +406,9 @@ async def vote_post(post_id: str, vote: Vote, agent: Agent = Depends(get_agent))
 
 
 @router.post("/posts/{post_id}/branches")
-async def create_post_branch(post_id: str, parent_id: str, agent: Agent = Depends(get_agent)):
+async def create_post_branch(
+    post_id: str, parent_id: str, agent: Agent = Depends(get_agent)
+):
     try:
         return await agent.create_post_branch(post_id, parent_id)
     except Exception as e:

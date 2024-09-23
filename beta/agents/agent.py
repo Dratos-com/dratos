@@ -640,36 +640,38 @@ class Agent:
             print(f"Error initializing LanceDB: {e}")
             raise
 
-    async def create_post(self, title: str, content: str, author: str, time_point: str, tags: str):
-        # Implementation to create a new post
-        # This is where you'd interact with your database or storage system
-        new_post = {
-            "id": str(uuid.uuid4()),
-            "title": title,
-            "content": content,
-            "author": author,
-            "timePoint": time_point,
-            "tags": tags,
-            "timestamp": datetime.now().isoformat(),
-            "upvotes": 0,
-            "downvotes": 0,
-            "comments": [],
-            "branches": []
-        }
-        # Here you would typically save this to your database
-        # For now, let's just return the new post
-        return new_post
-
-    async def get_all_posts(self):
+    async def create_post(self, title: str, content: str, author: str, time_point: str, tags: str, parent_id: str = None, version: float = 1.0):
         try:
-            # Assuming you're using LanceDB
-            table = self.lancedb_client.open_table("posts")
-            posts = table.to_pandas()
-            
-            # Convert DataFrame to list of dictionaries
-            posts_list = posts.to_dict('records')
-            
-            return posts_list
+            new_post = {
+                "id": str(uuid.uuid4()),
+                "title": title,
+                "content": content,
+                "author": author,
+                "timePoint": time_point,
+                "tags": tags,
+                "timestamp": datetime.now(),
+                "upvotes": 0,
+                "downvotes": 0,
+                "comments": [],
+                "branches": [],
+                "parent_id": parent_id,
+                "version": np.float32(version)  # Convert to numpy.float32
+            }
+            self.memory_store.add_post(new_post)
+            print(f"Created new post: {new_post}")
+            return new_post
+        except Exception as e:
+            print(f"Error creating post: {e}")
+            raise
+
+    async def get_all_posts(self) -> List[Dict[str, Any]]:
+        try:
+            posts = self.memory_store.get_all_posts()
+            print(f"Retrieved {len(posts)} posts")
+            # Convert version to numpy.float32 for each post
+            for post in posts:
+                post['version'] = np.float32(post.get('version', 1.0))
+            return posts
         except Exception as e:
             print(f"Error fetching posts: {e}")
             return []

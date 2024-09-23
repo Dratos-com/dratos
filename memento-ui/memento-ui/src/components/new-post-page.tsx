@@ -42,37 +42,36 @@ export function NewPostPageComponent({ parentCommit }: NewPostPageProps) {
   const [tags, setTags] = useState('')
   const [isParadoxWarningEnabled, setIsParadoxWarningEnabled] = useState(true)
   const [parentPost, setParentPost] = useState('')
-  const { addToast } = useToast()
+  const { toast } = useToast()
   const router = useRouter()
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault()
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
     try {
-      console.log("Submitting post:", { title, content, author: "CurrentUser", timePoint: selectedTimePoint, tags });  // Add this line
-      const newPost = await createPost(
+      const postData = {
         title,
         content,
-        "CurrentUser",
-        selectedTimePoint,
-        tags
-      )
-      console.log('New post created:', newPost)
-      addToast("Post Created: Your post has been successfully created and added to the timeline.")
-      // Reset form fields and redirect
-      setTitle('')
-      setContent('')
-      setSelectedTimePoint('')
-      setTags('')
-      setParentPost('')
-      router.push('/git-versioned-forum')
+        author: 'CurrentUser', // You might want to replace this with actual user data
+        timePoint: selectedTimePoint,
+        tags,
+        parent_id: parentPost || undefined,
+        version: "1"  // Change this to a string
+      };
+      console.log('Submitting post:', postData);
+      const newPost = await createPost(postData);
+      console.log('New post created:', newPost);
+      toast({
+        title: "Post created",
+        description: "Your new post has been successfully created.",
+      });
+      router.push('/git-versioned-forum');
     } catch (error) {
-      console.error('Error creating post:', error)
-      if (error.response) {
-        console.error('Response data:', error.response.data);
-        console.error('Response status:', error.response.status);
-        console.error('Response headers:', error.response.headers);
-      }
-      addToast("Error: There was an error creating your post. Please try again.")
+      console.error('Error creating post:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "An error occurred while creating the post.",
+        variant: "destructive",
+      });
     }
   }
 

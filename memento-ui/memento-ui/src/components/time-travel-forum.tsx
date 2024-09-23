@@ -22,7 +22,9 @@ export function TimeTravelForum() {
   const loadPosts = async () => {
     try {
       setIsLoading(true);
+      console.log("Fetching posts from API");
       const fetchedPosts = await fetchPosts();
+      console.log("Fetched posts:", fetchedPosts);
       setPosts(fetchedPosts);
     } catch (err) {
       console.error('Error fetching posts:', err);
