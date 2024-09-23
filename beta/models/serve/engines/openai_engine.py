@@ -18,6 +18,11 @@ from outlines.processors.base_logits_processor import OutlinesLogitsProcessor
 from outlines.processors.structured import JSONLogitsProcessor
 from outlines.processors.structured import RegexLogitsProcessor
 import numpy as np
+from dotenv import load_dotenv
+
+load_dotenv()
+
+api_key = os.getenv("OPENAI_API_KEY")
 
 class OpenAIEngineConfig(BaseEngineConfig):
     """

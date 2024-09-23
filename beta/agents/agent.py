@@ -19,13 +19,13 @@ import uuid
 import os
 from ulid import ULID
 
-from ..data.obj.artifacts.artifact_obj import Artifact
-from ..models.obj.base_language_model import LLM
-from ..models.serve.engines.base_engine import BaseEngine
-from ..models.serve.engines.openai_engine import OpenAIEngine, OpenAIEngineConfig
-from ..data.obj.result import Result
-from ..data.obj.memory import Memory, MemoryStore
-from ..tools.git_api import GitAPI
+from beta.data.obj.artifacts.artifact_obj import Artifact
+from beta.models.obj.base_language_model import LLM
+from beta.models.serve.engines.base_engine import BaseEngine
+from beta.models.serve.engines.openai_engine import OpenAIEngine, OpenAIEngineConfig
+from beta.data.obj.result import Result
+from beta.data.obj.memory import Memory, MemoryStore
+from beta.tools.git_api import GitAPI
 
 from beta.memory.lancedb_store import LanceDBMemoryStore
 from beta.git.git_api import GitAPI
@@ -299,12 +299,15 @@ class Agent:
             logging.error(f"Failed to store artifact vectors in LanceDB: {e}")
             raise
 
-    async def add_message(self, conversation_id: str, content: str, sender: str) -> Dict:
+    async def add_message(
+        self, conversation_id: str, content: str, sender: str
+    ) -> Dict:
+        self.initialize_lancedb()  # Ensure the dataset is initialized
         message = {
             "id": str(uuid.uuid4()),
             "content": content,
             "sender": sender,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
         }
         self.memory_store.add_memory(conversation_id, message)
 
@@ -424,7 +427,7 @@ class Agent:
                     "id": m["id"],
                     "content": m["content"],
                     "sender": m["sender"],
-                    "timestamp": m["timestamp"]
+                    "timestamp": m["timestamp"],
                 }
                 for m in memories
             ]
@@ -432,7 +435,9 @@ class Agent:
             print(f"Error fetching conversation history: {e}")
             return []
 
-    async def get_conversation_branches(self, conversation_id: str) -> List[Dict[str, Any]]:
+    async def get_conversation_branches(
+        self, conversation_id: str
+    ) -> List[Dict[str, Any]]:
         try:
             heads = self.git_api.get_branches()
             for head in heads:
@@ -449,12 +454,18 @@ class Agent:
             print(f"Error retrieving conversation branches: {e}")
             raise
 
-    async def create_conversation_branch(self, conversation_id: str, new_branch_id: str, commit_id: str):
+    async def create_conversation_branch(
+        self, conversation_id: str, new_branch_id: str, commit_id: str
+    ):
         try:
-            branch_name, new_commit_id = await self.git_api.create_branch_async(new_branch_id, commit_id)
+            branch_name, new_commit_id = await self.git_api.create_branch_async(
+                new_branch_id, commit_id
+            )
             if branch_name is None or new_commit_id is None:
-                raise Exception("Failed to create branch. The repository might be empty or the commit ID might be invalid.")
-            
+                raise Exception(
+                    "Failed to create branch. The repository might be empty or the commit ID might be invalid."
+                )
+
             # Create an initial commit if the branch is new
             if not self.memory_store.get_conversation_memories(branch_name):
                 self.memory_store.add_memory(
@@ -463,14 +474,14 @@ class Agent:
                         "id": str(uuid.uuid4()),
                         "content": f"Branch created: {branch_name}",
                         "sender": "system",
-                        "timestamp": datetime.utcnow().isoformat()
-                    }
+                        "timestamp": datetime.utcnow().isoformat(),
+                    },
                 )
-            
+
             return {
                 "branch_name": branch_name,
                 "commit_id": new_commit_id,
-                "history": await self.get_conversation_history(branch_name)
+                "history": await self.get_conversation_history(branch_name),
             }
         except Exception as e:
             print(f"Error creating branch: {e}")
@@ -495,7 +506,9 @@ class Agent:
         self._reload_memories()
         return await self.get_conversation_history(target_branch)
 
-    async def get_conversation_page(self, conversation_id: str, skip: int, limit: int) -> Dict:
+    async def get_conversation_page(
+        self, conversation_id: str, skip: int, limit: int
+    ) -> Dict:
         memories = self.memory_store.get_conversation_memories(conversation_id)
         if not memories:
             # If no memories exist, create an initial commit
@@ -506,11 +519,11 @@ class Agent:
                     "id": str(uuid.uuid4()),
                     "content": "Welcome to the conversation!",
                     "sender": "system",
-                    "timestamp": datetime.utcnow().isoformat()
-                }
+                    "timestamp": datetime.utcnow().isoformat(),
+                },
             )
         memories = self.memory_store.get_conversation_memories(conversation_id)
-        paginated_memories = memories[skip:skip + limit]
+        paginated_memories = memories[skip : skip + limit]
         return {
             "id": conversation_id,
             "messages": [
@@ -518,10 +531,11 @@ class Agent:
                     "id": m["id"],
                     "content": m["content"],
                     "sender": m["sender"],
-                    "timestamp": m["timestamp"]
-                } for m in paginated_memories
+                    "timestamp": m["timestamp"],
+                }
+                for m in paginated_memories
             ],
-            "total_messages": len(memories)
+            "total_messages": len(memories),
         }
 
     async def get_conversation_history(self, conversation_id: str) -> List[Dict]:
@@ -532,13 +546,99 @@ class Agent:
                     "id": m["id"],
                     "content": m["content"],
                     "sender": m["sender"],
-                    "timestamp": m["timestamp"]
+                    "timestamp": m["timestamp"],
                 }
                 for m in memories
             ]
         except Exception as e:
             print(f"Error fetching conversation history: {e}")
             return []
+
+    async def edit_message(
+        self, conversation_id: str, message_id: str, new_content: str
+    ) -> Dict:
+        try:
+            # Get the conversation
+            conversation = self.memory_store.get_conversation_memories(conversation_id)
+
+            # Find the message to edit
+            message_to_edit = next(
+                (m for m in conversation if m["id"] == message_id), None
+            )
+            if not message_to_edit:
+                raise ValueError(
+                    f"Message {message_id} not found in conversation {conversation_id}"
+                )
+
+            # Update the message
+            message_to_edit["content"] = new_content
+            message_to_edit["timestamp"] = datetime.utcnow().isoformat()
+
+            # Update the memory store
+            self.memory_store.update_conversation_memories(
+                conversation_id, conversation
+            )
+
+            # Commit the change
+            commit_id = self.git_api.commit_memory(f"Edit message {message_id}")
+
+            # Return the edited message
+            return {
+                "message_id": message_id,
+                "content": new_content,
+                "role": message_to_edit["sender"],
+                "timestamp": message_to_edit["timestamp"],
+                "commit_id": commit_id,
+            }
+        except Exception as e:
+            print(f"Error editing message: {e}")
+            raise
+
+    async def process_message(
+        self, conversation_id: str, content: str, sender: str
+    ) -> Dict:
+        try:
+            # Add the user's message to the conversation
+            user_message = await self.add_message(conversation_id, content, sender)
+
+            # Generate a response from the agent
+            response_content = await self.generate_response(content)
+            agent_message = await self.add_message(
+                conversation_id, response_content, "ai"
+            )
+
+            return agent_message
+        except Exception as e:
+            print(f"Error processing message: {e}")
+            raise
+
+    async def generate_response(self, content: str) -> str:
+        try:
+            response = await self.engine.generate(prompt=content)
+            return response
+        except Exception as e:
+            print(f"Error generating response: {e}")
+            raise
+
+    def initialize_lancedb(self):
+        try:
+            # Check if the dataset exists
+            if "memories" not in self.lancedb_client.table_names():
+                # Create the dataset if it doesn't exist
+                schema = pa.schema([
+                    pa.field("conversation_id", pa.string()),
+                    pa.field("timestamp", pa.float64()),
+                    pa.field("user", pa.string()),
+                    pa.field("message", pa.string()),
+                    pa.field("vector", pa.list_(pa.float32()))
+                ])
+                self.lancedb_client.create_table("memories", schema)
+                print("Created LanceDB dataset 'memories'.")
+            else:
+                print("LanceDB dataset 'memories' already exists.")
+        except Exception as e:
+            print(f"Error initializing LanceDB: {e}")
+            raise
 
 
 __all__ = ["Agent", "AgentStatus", "ToolInterface", "Prompt", "Message", "Metadata"]

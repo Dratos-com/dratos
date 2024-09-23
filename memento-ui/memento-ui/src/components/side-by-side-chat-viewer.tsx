@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { ulid } from 'ulid';
-import { fetchBranches, fetchConversationPage, createBranch } from '@/lib/api';
+import { fetchBranches, fetchConversationPage, createBranch, sendMessage } from '@/lib/api';
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,7 +11,6 @@ import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { GitBranch, Send, Edit2, Check, X } from "lucide-react"
-import { sendMessage } from "@/lib/api"
 
 type Message = {
   id: string
@@ -53,67 +52,107 @@ export function SideBySideChatViewer({
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const loadAllBranchesAndConversations = async () => {
-      try {
-        const fetchedBranches = await fetchBranches('initial');
-        setBranches(fetchedBranches);
-
-        const conversationsData: { [key: string]: Conversation } = {};
-        for (const branch of fetchedBranches) {
-          const conversationData = await fetchConversationPage(branch.name, 1, 20);
-          conversationsData[branch.name] = {
-            id: branch.name,
-            messages: conversationData.messages,
-          };
-        }
-        setConversations(conversationsData);
-
-        // Set active conversations to the first two branches or less if there are fewer branches
-        setActiveConversations(fetchedBranches.slice(0, 2).map(branch => branch.name));
-      } catch (error) {
-        console.error('Error loading branches and conversations:', error);
-        setError('Failed to load branches and conversations');
-      }
-    };
-
     loadAllBranchesAndConversations();
   }, []);
 
+  const loadAllBranchesAndConversations = async () => {
+    try {
+      const fetchedBranches = await fetchBranches('initial');
+      setBranches(fetchedBranches);
+
+      if (fetchedBranches.length > 0) {
+        // Sort branches by last_modified in descending order
+        const sortedBranches = fetchedBranches.sort((a, b) => 
+          new Date(b.last_modified).getTime() - new Date(a.last_modified).getTime()
+        );
+
+        const latestBranch = sortedBranches[0];
+        const conversationData = await fetchConversationPage(latestBranch.name, 1, 20);
+        
+        setConversations({
+          [latestBranch.name]: {
+            id: latestBranch.name,
+            messages: conversationData.messages,
+          },
+        });
+
+        setActiveConversations([latestBranch.name]);
+      } else {
+        console.log('No branches found');
+        setError('No conversation branches found');
+      }
+    } catch (error) {
+      console.error('Error loading branches and conversations:', error);
+      setError('Failed to load branches and conversations');
+    }
+  };
+
+  const loadConversationForBranch = async (branchId: string) => {
+    try {
+      const conversationData = await fetchConversationPage(branchId, 1, 20);
+      setConversations(prev => ({
+        ...prev,
+        [branchId]: {
+          id: branchId,
+          messages: conversationData.messages,
+        },
+      }));
+      return conversationData;
+    } catch (error) {
+      console.error(`Error loading conversation for branch ${branchId}:`, error);
+      setError(`Failed to load conversation for branch ${branchId}`);
+    }
+  };
+
   const handleSendMessage = async (conversationId: string) => {
     try {
-      await onSendMessage(conversationId, newMessage, 'user')
-      setNewMessage('')
-      // Refresh the conversation after sending a message
-      const updatedConversation = await fetchConversationPage(conversationId, 1, 20);
+      const userMessage = await onSendMessage(conversationId, newMessage, 'user');
+      setNewMessage('');
       setConversations(prev => ({
         ...prev,
         [conversationId]: {
           ...prev[conversationId],
-          messages: updatedConversation.messages,
+          messages: [...prev[conversationId].messages, userMessage],
+        },
+      }));
+
+      // Send the message to the agent and get the response
+      const agentMessage = await onSendMessage(conversationId, newMessage, 'ai');
+      setConversations(prev => ({
+        ...prev,
+        [conversationId]: {
+          ...prev[conversationId],
+          messages: [...prev[conversationId].messages, agentMessage],
         },
       }));
     } catch (error) {
-      console.error('Error sending message:', error)
-      setError('Failed to send message')
+      console.error('Error sending message:', error);
+      setError('Failed to send message');
     }
   };
 
   const handleEditMessage = async (conversationId: string, messageId: string, newContent: string) => {
     try {
-      await onEditMessage(conversationId, messageId, newContent)
-      setEditingMessage(null)
-      // Refresh the conversation after editing a message
-      const updatedConversation = await fetchConversationPage(conversationId, 1, 20);
-      setConversations(prev => ({
-        ...prev,
-        [conversationId]: {
-          ...prev[conversationId],
-          messages: updatedConversation.messages,
-        },
-      }));
+      const newBranchId = ulid();
+      await onCreateBranch(conversationId, newBranchId);
+      await onEditMessage(newBranchId, messageId, newContent);
+      
+      // Load the new branch's conversation
+      const newConversation = await loadConversationForBranch(newBranchId);
+      
+      if (newConversation) {
+        // Update branches list
+        const updatedBranches = await fetchBranches('initial');
+        setBranches(updatedBranches);
+
+        // Switch to the new branch
+        handleSwitchBranch(newBranchId);
+      }
+
+      setEditingMessage(null);
     } catch (error) {
-      console.error('Error editing message:', error)
-      setError('Failed to edit message')
+      console.error('Error editing message:', error);
+      setError('Failed to edit message and create new branch');
     }
   };
 
@@ -121,26 +160,40 @@ export function SideBySideChatViewer({
     try {
       const newBranchId = ulid();
       await onCreateBranch(conversationId, newBranchId);
-      const updatedBranches = await fetchBranches('initial');
-      setBranches(updatedBranches);
       
-      // Fetch the new branch's conversation
-      const newConversation = await fetchConversationPage(newBranchId, 1, 20);
-      setConversations(prev => ({
-        ...prev,
-        [newBranchId]: {
-          id: newBranchId,
-          messages: newConversation.messages,
-        },
-      }));
+      // Load the new branch's conversation
+      const newConversation = await loadConversationForBranch(newBranchId);
+      
+      if (newConversation) {
+        // Update branches list
+        const updatedBranches = await fetchBranches('initial');
+        setBranches(updatedBranches);
 
-      // Add the new branch to active conversations if there's room
-      if (activeConversations.length < 2) {
-        setActiveConversations(prev => [...prev, newBranchId]);
+        // Add the new branch to active conversations if there's room
+        if (activeConversations.length < 2) {
+          setActiveConversations(prev => [...prev, newBranchId]);
+        } else {
+          // Replace the second conversation with the new branch
+          setActiveConversations(prev => [prev[0], newBranchId]);
+        }
       }
     } catch (error) {
       console.error('Error creating branch:', error);
       setError('Failed to create branch');
+    }
+  };
+
+  const handleSwitchBranch = async (branchName: string) => {
+    try {
+      if (!activeConversations.includes(branchName)) {
+        await loadConversationForBranch(branchName);
+
+        // Replace the first active conversation with the new one
+        setActiveConversations(prev => [branchName, ...prev.slice(1)]);
+      }
+    } catch (error) {
+      console.error('Error switching branch:', error);
+      setError('Failed to switch branch');
     }
   };
 
@@ -162,36 +215,38 @@ export function SideBySideChatViewer({
         <CardContent className="flex-grow overflow-hidden">
           <ScrollArea className="h-[calc(100vh-300px)]">
             {conversation.messages.map(message => (
-              <div key={message.id} className={`mb-4 ${message.sender === 'user' ? 'text-right' : 'text-left'}`}>
-                <div className={`inline-block p-2 rounded-lg ${message.sender === 'user' ? 'bg-blue-100' : 'bg-gray-100'}`}>
-                  {editingMessage === message.id ? (
-                    <div className="flex items-center">
-                      <Textarea
-                        value={editContent}
-                        onChange={(e) => setEditContent(e.target.value)}
-                        className="min-w-[200px]"
-                      />
-                      <Button variant="ghost" size="sm" onClick={() => handleEditMessage(conversation.id, message.id, editContent)}>
-                        <Check className="w-4 h-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => setEditingMessage(null)}>
-                        <X className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <>
-                      <p>{message.content}</p>
-                      <Button variant="ghost" size="sm" onClick={() => {
-                        setEditingMessage(message.id);
-                        setEditContent(message.content);
-                      }}>
-                        <Edit2 className="w-4 h-4" />
-                      </Button>
-                    </>
-                  )}
+              message && message.sender && (
+                <div key={message.id} className={`mb-4 ${message.sender === 'user' ? 'text-right' : 'text-left'}`}>
+                  <div className={`inline-block p-2 rounded-lg ${message.sender === 'user' ? 'bg-blue-100' : 'bg-gray-100'}`}>
+                    {editingMessage === message.id ? (
+                      <div className="flex items-center">
+                        <Textarea
+                          value={editContent}
+                          onChange={(e) => setEditContent(e.target.value)}
+                          className="min-w-[200px]"
+                        />
+                        <Button variant="ghost" size="sm" onClick={() => handleEditMessage(conversation.id, message.id, editContent)}>
+                          <Check className="w-4 h-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => setEditingMessage(null)}>
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <>
+                        <p>{message.content}</p>
+                        <Button variant="ghost" size="sm" onClick={() => {
+                          setEditingMessage(message.id);
+                          setEditContent(message.content);
+                        }}>
+                          <Edit2 className="w-4 h-4" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">{new Date(message.timestamp).toLocaleString()}</p>
                 </div>
-                <p className="text-xs text-gray-500 mt-1">{new Date(message.timestamp).toLocaleString()}</p>
-              </div>
+              )
             ))}
           </ScrollArea>
         </CardContent>
@@ -238,11 +293,11 @@ export function SideBySideChatViewer({
           {branches.map((branch) => (
             <li key={branch.name}>
               {branch.name} - Last modified: {new Date(branch.last_modified).toLocaleString()}
-              <button onClick={() => handleSwitchBranch(branch.name)}>Switch</button>
+              <Button onClick={() => handleSwitchBranch(branch.name)}>Switch</Button>
             </li>
           ))}
         </ul>
-        <button onClick={() => handleCreateBranch('initial')}>Create New Branch</button>
+        <Button onClick={() => handleCreateBranch(activeConversations[0])}>Create New Branch</Button>
       </div>
     </div>
   )
