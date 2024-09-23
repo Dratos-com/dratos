@@ -305,12 +305,75 @@ async def send_message(
         raise HTTPException(status_code=400, detail=str(e)) from e
 
 
+class PostResponse(BaseModel):
+    user_post: Post
+    agent_response: Optional[Post]
+
+
+@router.post("/posts", response_model=PostResponse)
+async def create_post(post: PostCreate, agent: Agent = Depends(get_agent)):
+    try:
+        print(f"Received post data: {post}")
+        new_post, agent_response = await agent.create_post(
+            post.title,
+            post.content,
+            post.author,
+            post.timePoint,
+            post.tags,
+            post.parent_id,
+            np.float32(post.version),
+        )
+
+        user_post_response = Post(
+            id=new_post["id"],
+            title=new_post["title"],
+            content=new_post["content"],
+            author=new_post["author"],
+            timestamp=new_post["timestamp"] if isinstance(new_post["timestamp"], str) else new_post["timestamp"].isoformat(),
+            upvotes=new_post["upvotes"],
+            downvotes=new_post["downvotes"],
+            comments=len(new_post["comments"]),
+            branches=len(new_post["branches"]),
+            timePoint=new_post["timePoint"],
+            tags=new_post["tags"],
+            parent_id=new_post.get("parent_id"),
+            version=np.float32(new_post.get("version", 1.0)),
+        )
+
+        agent_post_response = Post(
+            id=agent_response["id"],
+            title=agent_response["title"],
+            content=agent_response["content"],
+            author=agent_response["author"],
+            timestamp=agent_response["timestamp"] if isinstance(agent_response["timestamp"], str) else agent_response["timestamp"].isoformat(),
+            upvotes=agent_response["upvotes"],
+            downvotes=agent_response["downvotes"],
+            comments=len(agent_response["comments"]),
+            branches=len(agent_response["branches"]),
+            timePoint=agent_response["timePoint"],
+            tags=agent_response["tags"],
+            parent_id=agent_response.get("parent_id"),
+            version=np.float32(agent_response.get("version", 1.0)),
+        )
+
+        print(f"Created new post: {user_post_response}")
+        print(f"Created agent response: {agent_post_response}")
+
+        return PostResponse(
+            user_post=user_post_response, agent_response=agent_post_response
+        )
+    except Exception as e:
+        print(f"Error creating post: {str(e)}")
+        print(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
 @router.get("/posts", response_model=List[Post])
 async def get_posts(agent: Agent = Depends(get_agent)):
     try:
         raw_posts = await agent.get_all_posts()
         print(f"Raw posts: {raw_posts}")
-        
+
         posts = []
         for raw_post in raw_posts:
             try:
@@ -319,7 +382,7 @@ async def get_posts(agent: Agent = Depends(get_agent)):
                     title=raw_post.get("title"),
                     content=raw_post.get("content"),
                     author=raw_post["author"],
-                    timestamp=raw_post["timestamp"],
+                    timestamp=raw_post["timestamp"] if isinstance(raw_post["timestamp"], str) else raw_post["timestamp"].isoformat(),
                     upvotes=raw_post.get("upvotes", 0),
                     downvotes=raw_post.get("downvotes", 0),
                     comments=len(raw_post.get("comments", [])),
@@ -327,13 +390,17 @@ async def get_posts(agent: Agent = Depends(get_agent)):
                     timePoint=raw_post.get("timePoint", ""),
                     tags=raw_post.get("tags", ""),
                     parent_id=raw_post.get("parent_id"),
-                    version=np.float32(raw_post.get("version", 1.0))  # Convert to numpy.float32
+                    version=np.float32(raw_post.get("version", 1.0)),
                 )
                 posts.append(post)
             except ValidationError as ve:
-                print(f"Validation error for post {raw_post.get('id', 'unknown')}: {ve}")
+                print(
+                    f"Validation error for post {raw_post.get('id', 'unknown')}: {ve}"
+                )
             except Exception as e:
-                print(f"Error processing post {raw_post.get('id', 'unknown')}: {str(e)}")
+                print(
+                    f"Error processing post {raw_post.get('id', 'unknown')}: {str(e)}"
+                )
 
         return posts
     except Exception as e:
@@ -350,41 +417,6 @@ async def get_post(post_id: str, agent: Agent = Depends(get_agent)):
         return await agent.get_post(post_id)
     except Exception as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
-
-
-@router.post("/posts", response_model=Post)
-async def create_post(post: PostCreate, agent: Agent = Depends(get_agent)):
-    try:
-        print(f"Received post data: {post}")
-        new_post = await agent.create_post(
-            post.title,
-            post.content,
-            post.author,
-            post.timePoint,
-            post.tags,
-            post.parent_id,
-            np.float32(post.version)  # Convert to numpy.float32
-        )
-        post_response = Post(
-            id=new_post["id"],
-            title=new_post["title"],
-            content=new_post["content"],
-            author=new_post["author"],
-            timestamp=new_post["timestamp"].isoformat(),
-            upvotes=new_post["upvotes"],
-            downvotes=new_post["downvotes"],
-            comments=len(new_post["comments"]),
-            branches=len(new_post["branches"]),
-            timePoint=new_post["timePoint"],
-            tags=new_post["tags"],
-            parent_id=new_post.get("parent_id"),
-            version=np.float32(new_post.get("version", 1.0))  # Convert to numpy.float32
-        )
-        print(f"Created new post: {post_response}")
-        return post_response
-    except Exception as e:
-        print(f"Error creating post: {str(e)}")
-        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/posts/{post_id}/comments")

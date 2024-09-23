@@ -205,3 +205,6 @@ class LanceDBMemoryStore:
         except Exception as e:
             print(f"Error fetching posts: {e}")
             return []
+
+    def get_recent_posts(self, limit: int = 5) -> List[Dict[str, Any]]:
+        return self.posts_table.to_pandas().sort_values('timestamp', ascending=False).head(limit).to_dict('records')

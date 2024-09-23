@@ -649,19 +649,63 @@ class Agent:
                 "author": author,
                 "timePoint": time_point,
                 "tags": tags,
-                "timestamp": datetime.now(),
+                "timestamp": datetime.now().isoformat(),  # Store as ISO format string
                 "upvotes": 0,
                 "downvotes": 0,
                 "comments": [],
                 "branches": [],
                 "parent_id": parent_id,
-                "version": np.float32(version)  # Convert to numpy.float32
+                "version": np.float32(version)
             }
             self.memory_store.add_post(new_post)
             print(f"Created new post: {new_post}")
-            return new_post
+            
+            # Generate agent response
+            agent_response = await self.generate_response_post(new_post)
+            
+            return new_post, agent_response
         except Exception as e:
             print(f"Error creating post: {e}")
+            raise
+
+    async def generate_response_post(self, original_post: Dict[str, Any]) -> Dict[str, Any]:
+        try:
+            # Fetch recent posts as context
+            recent_posts = self.memory_store.get_recent_posts(limit=5)
+            
+            # Prepare context for the AI
+            context = f"Recent posts:\n"
+            for post in recent_posts:
+                context += f"- Title: {post.get('title', 'No title')}\n  Content: {post.get('content', 'No content')}\n\n"
+            
+            context += f"Respond to this post:\nTitle: {original_post.get('title', 'No title')}\nContent: {original_post.get('content', 'No content')}\n"
+            
+            # Generate response using the AI engine
+            response_content = await self.engine.generate(context)
+            
+            # Create a new post as the agent's response
+            response_post = {
+                "id": str(uuid.uuid4()),
+                "title": f"Re: {original_post.get('title', 'No title')}",
+                "content": response_content,
+                "author": "AI Agent",
+                "timePoint": original_post.get('timePoint', ''),
+                "tags": original_post.get('tags', ''),
+                "timestamp": datetime.now().isoformat(),
+                "upvotes": 0,
+                "downvotes": 0,
+                "comments": [],
+                "branches": [],
+                "parent_id": original_post['id'],
+                "version": np.float32(1.0)
+            }
+            
+            self.memory_store.add_post(response_post)
+            print(f"Created agent response post: {response_post}")
+            
+            return response_post
+        except Exception as e:
+            print(f"Error generating response post: {e}")
             raise
 
     async def get_all_posts(self) -> List[Dict[str, Any]]:
