@@ -177,7 +177,7 @@ class Agent:
             .get("sentence-transformers")
             .create(name="BAAI/bge-small-en-v1.5")
         )
-        self.memory_store = memory_store or LanceDBMemoryStore()
+        self.memory_store = memory_store or LanceDBMemoryStore(memory_db_uri)
         self.git_api = GitAPI(memory_db_uri)
 
     async def process(
