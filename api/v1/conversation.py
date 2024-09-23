@@ -14,7 +14,7 @@ app = FastAPI()
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Adjust this to the specific origins you want to allow
+    allow_origins=["http://localhost:3000"],  # Replace with your frontend URL
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -95,6 +95,35 @@ class MessageResponse(BaseModel):
     timestamp: str
     commit_id: str
     history: List[HistoryItem]
+
+
+class PostCreate(BaseModel):
+    title: str
+    content: str
+    author: str
+    timePoint: str
+    tags: str
+
+
+class CommentCreate(BaseModel):
+    content: str
+    author: str
+
+
+class Vote(BaseModel):
+    type: str  # 'up' or 'down'
+
+
+class Post(BaseModel):
+    id: str
+    title: str
+    content: str
+    author: str
+    timestamp: str
+    upvotes: int
+    downvotes: int
+    comments: int
+    branches: int
 
 
 @router.post("/conversation/{conversation_id}/branch", response_model=BranchResponse)
@@ -247,4 +276,94 @@ async def send_message(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
-app.include_router(router)
+
+@router.get("/posts", response_model=List[Post])
+async def get_posts(agent: Agent = Depends(get_agent)):
+    try:
+        # Fetch posts from the agent's storage
+        raw_posts = await agent.get_all_posts()
+        
+        # Convert raw posts to the Post model
+        posts = []
+        for raw_post in raw_posts:
+            post = Post(
+                id=raw_post['id'],
+                title=raw_post['title'],
+                content=raw_post['content'],
+                author=raw_post['author'],
+                timestamp=raw_post['timestamp'],
+                upvotes=raw_post['upvotes'],
+                downvotes=raw_post['downvotes'],
+                comments=len(raw_post.get('comments', [])),
+                branches=len(raw_post.get('branches', []))
+            )
+            posts.append(post)
+        
+        return posts
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching posts: {str(e)}") from e
+
+
+@router.get("/posts/{post_id}")
+async def get_post(post_id: str, agent: Agent = Depends(get_agent)):
+    try:
+        return await agent.get_post(post_id)
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+
+
+@router.post("/posts", response_model=Post)
+async def create_post(post: PostCreate, agent: Agent = Depends(get_agent)):
+    try:
+        print(f"Received post data: {post}")  # Add this line
+        new_post = await agent.create_post(
+            post.title,
+            post.content,
+            post.author,
+            post.timePoint,
+            post.tags
+        )
+        # Convert the new_post dictionary to match the Post model
+        post_response = Post(
+            id=new_post['id'],
+            title=new_post['title'],
+            content=new_post['content'],
+            author=new_post['author'],
+            timestamp=new_post['timestamp'],
+            upvotes=new_post['upvotes'],
+            downvotes=new_post['downvotes'],
+            comments=len(new_post['comments']),  # Convert list to count
+            branches=len(new_post['branches'])   # Convert list to count
+        )
+        print(f"Created new post: {post_response}")  # Add this line
+        return post_response
+    except Exception as e:
+        print(f"Error creating post: {str(e)}")  # Add this line
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@router.post("/posts/{post_id}/comments")
+async def add_comment(post_id: str, comment: CommentCreate, agent: Agent = Depends(get_agent)):
+    try:
+        return await agent.add_comment(post_id, comment.content, comment.author)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@router.post("/posts/{post_id}/vote")
+async def vote_post(post_id: str, vote: Vote, agent: Agent = Depends(get_agent)):
+    try:
+        return await agent.vote_post(post_id, vote.type)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+@router.post("/posts/{post_id}/branches")
+async def create_post_branch(post_id: str, parent_id: str, agent: Agent = Depends(get_agent)):
+    try:
+        return await agent.create_post_branch(post_id, parent_id)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
+app.include_router(router, prefix="/api/v1")

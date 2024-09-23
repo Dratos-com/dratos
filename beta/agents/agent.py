@@ -640,5 +640,39 @@ class Agent:
             print(f"Error initializing LanceDB: {e}")
             raise
 
+    async def create_post(self, title: str, content: str, author: str, time_point: str, tags: str):
+        # Implementation to create a new post
+        # This is where you'd interact with your database or storage system
+        new_post = {
+            "id": str(uuid.uuid4()),
+            "title": title,
+            "content": content,
+            "author": author,
+            "timePoint": time_point,
+            "tags": tags,
+            "timestamp": datetime.now().isoformat(),
+            "upvotes": 0,
+            "downvotes": 0,
+            "comments": [],
+            "branches": []
+        }
+        # Here you would typically save this to your database
+        # For now, let's just return the new post
+        return new_post
+
+    async def get_all_posts(self):
+        try:
+            # Assuming you're using LanceDB
+            table = self.lancedb_client.open_table("posts")
+            posts = table.to_pandas()
+            
+            # Convert DataFrame to list of dictionaries
+            posts_list = posts.to_dict('records')
+            
+            return posts_list
+        except Exception as e:
+            print(f"Error fetching posts: {e}")
+            return []
+
 
 __all__ = ["Agent", "AgentStatus", "ToolInterface", "Prompt", "Message", "Metadata"]
