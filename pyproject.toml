@@ -1,0 +1,27 @@
+[tool.poetry]
+name = "Dratos"
+version = "0.1.0"
+description = "Entreprise-grade framework to build with LLMs"
+authors = ["Dratos team"]
+license = "GPL-3.0"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "3.11"
+dotenv = "^0.0.5"
+mlflow = "^2.16.2"
+openai = "^1.50.0"
+pydantic = "^2.9.2"
+getdaft = "^0.3.4"
+lark = "^1.2.2"
+lancedb = "^0.13.0"
+ray = {extras = ["serve"], version = "^2.37.0"}
+python-ulid = "^2.7.0"
+torch = "^2.4.1"
+transformers = "^4.45.1"
+outlines = "^0.0.46"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
