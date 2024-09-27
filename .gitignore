@@ -9,6 +9,7 @@ __pycache__
 mlruns
 .DS_Store
 
+.lancedb_test
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
