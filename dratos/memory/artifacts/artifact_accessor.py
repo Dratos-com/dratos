@@ -2,10 +2,10 @@ from typing import List, Optional, Dict, Any
 import daft
 from daft.io import IOConfig
 from pyiceberg.table import Table as PyIcebergTable
-from dratos.memory.obj.artifacts.artifact import Artifact
+from dratos import Artifact
 import deltacat
 import pyarrow as pa
-from dratos.memory.obj.base.data_object_accessor import DataObjectTable
+from dratos import DataObjectTable
 
 
 class ArtifactTable(Lance):

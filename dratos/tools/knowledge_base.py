@@ -5,7 +5,7 @@ import typing
 if typing.TYPE_CHECKING:
     pass
 from typing import List, Optional
-from .. import DataObject, Document as doc, Graph as kg
+from dratos import DataObject, Document as doc, Graph as kg
 
 
 class KnowledgeBase(Tool):

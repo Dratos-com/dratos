@@ -11,8 +11,7 @@ import json
 import lark
 import pyarrow as pa
 from .base_engine import BaseEngine, BaseEngineConfig
-from ....data import Artifact
-from ....data import DataObject
+from dratos.memory import Artifact
 from outlines.fsm.json_schema import build_regex_from_schema
 from outlines.processors.base_logits_processor import BaseLogitsProcessor
 from outlines.processors.structured import JSONLogitsProcessor
@@ -214,7 +213,7 @@ class OpenAIEngine(BaseEngine):
     async def generate_data(
         self,
         prompt: Union[str, List[str]],
-        structure: Union[str, Dict, pa.Schema, DataObject],
+        structure: Union[str, Dict, pa.Schema],
         grammar: lark.Lark = None,
         logits_processor: Optional[BaseLogitsProcessor] = None,
         **kwargs,

@@ -19,11 +19,12 @@ sys.path.append(project_root)
 
 ################### Adding Project Root to Python Path #############################
 
-import  dotenv
 import asyncio
 
-from dratos.models.obj.base_language_model import LLM
-from dratos.models.serve.engines.openai_engine import OpenAIEngine, OpenAIEngineConfig
+# from dratos.models.obj.base_language_model import LLM
+# from dratos.models.serve.engines.openai_engine import OpenAIEngine, OpenAIEngineConfig
+
+from dratos import LLM, OpenAIEngineConfig, OpenAIEngine
 
 oai_config = OpenAIEngineConfig()
 

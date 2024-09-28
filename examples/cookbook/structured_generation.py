@@ -22,8 +22,7 @@ sys.path.append(project_root)
 import  dotenv
 import asyncio
 
-from dratos.models.obj.base_language_model import LLM
-from dratos.models.serve.engines.openai_engine import OpenAIEngine, OpenAIEngineConfig
+from dratos import LLM, OpenAIEngine, OpenAIEngineConfig
 
 dotenv.load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
@@ -42,4 +41,4 @@ llm = LLM("gpt-4o", openai_engine)
 
 response = asyncio.run(llm.generate_structured("What is the capital of Canada?", structure="{location: str, capital: str}"))
 
-print(response)
+print("\033[94m" + response + "\033[0m")

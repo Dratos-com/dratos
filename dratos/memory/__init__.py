@@ -1,3 +1,1 @@
-from .obj import DataObject, Artifact
-
-__all__ = ["DataObject", "Artifact"]
+from dratos.memory.artifacts import *

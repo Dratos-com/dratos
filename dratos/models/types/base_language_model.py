@@ -8,8 +8,8 @@ import typing
 if typing.TYPE_CHECKING:
     pass
 from typing import Dict, List, Optional
-from ..utils.adapters.base_engine import BaseEngine
-from ..utils.adapters.openai_engine import OpenAIEngine, OpenAIEngineConfig
+from dratos.models.adapters.base_engine import BaseEngine
+from dratos.models.adapters.openai_engine import OpenAIEngine, OpenAIEngineConfig
 
 
 # Define the base input class

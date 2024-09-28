@@ -1,5 +1,8 @@
 """
-TODO how to use mlflow's ui?
+* Working 
+TODO document MLflow usage and how/where to setup traces:
+import mlflow
+@mlflow.trace # decorator to trace a function
 
 What this script does:
 Generate a response from an LLM and log the response to mlflow.
@@ -24,8 +27,7 @@ import  dotenv
 import mlflow
 import asyncio
 
-from dratos.models.obj.base_language_model import LLM
-from dratos.models.serve.engines.openai_engine import OpenAIEngine, OpenAIEngineConfig
+from dratos import LLM, OpenAIEngine, OpenAIEngineConfig
 
 dotenv.load_dotenv()
 
@@ -54,6 +56,3 @@ with mlflow.start_run():
 
 print("\033[94m" + response + "\033[0m")
 
-# # Setup traces
-# import mlflow
-# @mlflow.trace
