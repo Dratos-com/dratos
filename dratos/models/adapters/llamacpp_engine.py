@@ -2,7 +2,7 @@ import os
 from typing import Any, Dict, List
 from llama_cpp import Llama
 from .base_engine import BaseEngine
-from dratos.models.serve.utils.prompt_utils import prompt
+from dratos import prompt
 import mlflow
 
 

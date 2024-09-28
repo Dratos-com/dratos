@@ -20,9 +20,7 @@ sys.path.append(project_root)
 
 import asyncio
 
-from dratos.models.obj.base_language_model import LLM
-from dratos.models.serve.engines.openai_engine import OpenAIEngineConfig
-from dratos.models.serve.engines.llamacpp_engine import LlamaCppEngine
+from dratos import LLM, OpenAIEngineConfig, LlamaCppEngine
 
 oai_config = OpenAIEngineConfig(data={"api_key": "EMPTY", 
                                       "base_url": "https://api.openai.com/v1", 
