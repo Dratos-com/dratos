@@ -24,15 +24,6 @@ import asyncio
 from dratos import LLM, prompt, Agent
 from dratos import OpenAIEngine
 
-import streamlit as st
-import time
-
-# Title of the app
-st.title("Streaming Text with Streamlit")
-
-# Create a placeholder for streaming text
-placeholder = st.empty()
-
 
 llm = LLM(
     model_name="gpt-4o", 
@@ -55,9 +46,8 @@ agent_with_tool = Agent(
 async def get_final_result():
     response = ""
     async for value in agent_with_tool.async_gen(poem_prompt("Canada")):
-        #print(value, end="", flush=True) 
+        print(value, end="", flush=True) 
         response += value
-        placeholder.text(response)
     return response
 
 final_result = asyncio.run(get_final_result())

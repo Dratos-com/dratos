@@ -118,19 +118,23 @@ class Agent:
         except KeyError:
             tokenizer = tiktoken.encoding_for_model("gpt-4o")
         
-        tokens = 0
-        response = ""
-        with Live(console=console, refresh_per_second=4) as live:
+        async def stream():
+            response = ""
+            tokens = 0
             async for chunk in self.llm.stream(prompt, 
-                                               response_format=self.response_format, 
-                                               tools=tools, 
-                                               messages=self.messages, 
-                                               **completion_setting):
+                                    response_format=self.response_format, 
+                                    tools=tools, 
+                                    messages=self.messages, 
+                                    **completion_setting):
                 response += chunk
                 tokens += len(tokenizer.encode(chunk))
-                if self.verbose:
+                yield chunk, tokens, response
+        
+        if self.verbose:
+            with Live(console=console, refresh_per_second=4) as live:
+                async for chunk, tokens, response in stream():
                     live.update(
-                        Panel(
+                            Panel(
                             Markdown(str(response)) if self.markdown_response else str(response),
                             title=f"Response ({tokens} tokens)",
                             title_align="left",
@@ -138,6 +142,9 @@ class Agent:
                             expand=False
                         )
                     )
+                    yield chunk
+        else:
+            async for chunk, _, _ in stream():
                 yield chunk
 
     def format_message(self, message: str, role: str):
