@@ -1,4 +1,4 @@
-from dratos.models.serve.engines.openai_engine import OpenAIEngine, OpenAIEngineConfig
+from dratos.engines.serve.engines.openai_engine import OpenAIEngine, OpenAIEngineConfig
 from typing import Any, Dict, List, Union, Type, Optional
 import pyarrow as pa
 import mlflow

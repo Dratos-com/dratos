@@ -1,1 +1,0 @@
-from dratos.utils.get_device import *

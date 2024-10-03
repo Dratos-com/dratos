@@ -3,7 +3,7 @@ from typing import Any, Dict, List
 import openai
 from pydantic import BaseModel
 from .base_engine import BaseEngine
-from dratos.models.serve.utils.prompt_utils import prompt, Prompt
+from dratos.engines.serve.utils.prompt_utils import prompt, Prompt
 import mlflow
 from dratos.memory.obj.base.data_object import DataObject
 

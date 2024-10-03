@@ -1,0 +1,189 @@
+{
+  "{\"messages\": [{\"content\": \"You mk,mare a helpful assistant.\", \"role\": \"system\"}, {\"content\": \"Say hi in french\", \"role\": \"user\"}], \"model\": \"gpt-4o\"}": "Hello there",
+  "{\\\"messages\\\": [{\\\"content\\\": \\\"You are a helpful assistant.\\\", \\\"role\\\": \\\"system\\\"}, {\\\"content\\\": \\\"Say hi in french\\\", \\\"role\\\": \\\"user\\\"}], \\\"model\\\": \\\"gpt-4o\\\", \\\"path\\\": \\\"chat/completions\\\"}": {
+    "error": {
+      "message": "You didn't provide an API key. You need to provide your API key in an Authorization header using Bearer auth (i.e. Authorization: Bearer YOUR_KEY), or as the password field (with blank username) if you're accessing the API from your browser and are prompted for a username and password. You can obtain an API key from https://platform.openai.com/account/api-keys.",
+      "type": "invalid_request_error",
+      "param": null,
+      "code": null
+    }
+  },
+  "{\"messages\": [{\"content\": \"You are a helpful assistant.\", \"role\": \"system\"}, {\"content\": \"Say hi in french\", \"role\": \"user\"}], \"model\": \"gpt-4o\", \"path\": \"chat/completions\"}": {
+    "id": "chatcmpl-AE0UilORKZ58NYzMhviidT9ClwaAV",
+    "object": "chat.completion",
+    "created": 1727901856,
+    "model": "gpt-4o-2024-05-13",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "Bonjour!",
+          "refusal": null
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 21,
+      "completion_tokens": 2,
+      "total_tokens": 23,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "completion_tokens_details": {
+        "reasoning_tokens": 0
+      }
+    },
+    "system_fingerprint": "fp_057232b607"
+  },
+  "{\"key1\": \"dummy_value\", \"key2\": \"dummy_value\", \"key4\": \"dummy_value\", \"path\": \"api\"}": {
+    "error": {
+      "type": "invalid_request_error",
+      "code": "unknown_url",
+      "message": "Unknown request URL: POST /v1/api. Please check the URL for typos, or see the docs at https://platform.openai.com/docs/api-reference/.",
+      "param": null
+    }
+  },
+  "{\"messages\": [{\"content\": \"Say hi in french\", \"role\": \"user\"}], \"model\": \"gpt-4o\", \"path\": \"chat/completions\"}": {
+    "id": "chatcmpl-AEDWOC4lLeqLM1skoBo4hyYaN3oKL",
+    "object": "chat.completion",
+    "created": 1727951932,
+    "model": "gpt-4o-2024-08-06",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "Bonjour!",
+          "refusal": null
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 11,
+      "completion_tokens": 2,
+      "total_tokens": 13,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "completion_tokens_details": {
+        "reasoning_tokens": 0
+      }
+    },
+    "system_fingerprint": "fp_e5e4913e83"
+  },
+  "{\"messages\": [{\"content\": \"What is 2 + 2?\", \"role\": \"user\"}], \"model\": \"gpt-4o\", \"path\": \"chat/completions\", \"tool_choice\": \"auto\", \"tools\": [{\"function\": {\"description\": \"Definition for add.\", \"name\": \"add\", \"parameters\": {\"additionalProperties\": false, \"properties\": {\"arg1\": {\"description\": \"The arg1 parameter.\", \"type\": \"string\"}, \"arg2\": {\"description\": \"The arg2 parameter.\", \"type\": \"string\"}}, \"required\": [\"arg1\", \"arg2\"], \"type\": \"object\"}}, \"type\": \"function\"}]}": {
+    "id": "chatcmpl-AEDYPDn0ZCZEcc9Q2ZMK0E8bJJK6Z",
+    "object": "chat.completion",
+    "created": 1727952057,
+    "model": "gpt-4o-2024-08-06",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": null,
+          "tool_calls": [
+            {
+              "id": "call_nLVLTu9flzg8xsYTl6uCl47B",
+              "type": "function",
+              "function": {
+                "name": "add",
+                "arguments": "{\"arg1\":\"2\",\"arg2\":\"2\"}"
+              }
+            }
+          ],
+          "refusal": null
+        },
+        "logprobs": null,
+        "finish_reason": "tool_calls"
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 65,
+      "completion_tokens": 19,
+      "total_tokens": 84,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "completion_tokens_details": {
+        "reasoning_tokens": 0
+      }
+    },
+    "system_fingerprint": "fp_4ea369768a"
+  },
+  "{\"messages\": [{\"content\": \"What is 2 + 2?\", \"role\": \"user\"}], \"model\": \"gpt-4o\", \"path\": \"chat/completions\", \"tool_choice\": \"auto\", \"tools\": [{\"function\": {\"description\": \"add definition.\", \"name\": \"add\", \"parameters\": {\"additionalProperties\": false, \"properties\": {\"arg1\": {\"description\": \"arg1 parameter.\", \"type\": \"integer\"}, \"arg2\": {\"description\": \"arg2 parameter.\", \"type\": \"integer\"}}, \"required\": [\"arg1\", \"arg2\"], \"type\": \"object\"}}, \"type\": \"function\"}]}": {
+    "id": "chatcmpl-AEDpycrTYFJVj9OGCIg2QgeudoS7s",
+    "object": "chat.completion",
+    "created": 1727953146,
+    "model": "gpt-4o-2024-08-06",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": null,
+          "tool_calls": [
+            {
+              "id": "call_IGMNPiJXFqOoPWlvPCNszDJG",
+              "type": "function",
+              "function": {
+                "name": "add",
+                "arguments": "{\"arg1\":2,\"arg2\":2}"
+              }
+            }
+          ],
+          "refusal": null
+        },
+        "logprobs": null,
+        "finish_reason": "tool_calls"
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 62,
+      "completion_tokens": 19,
+      "total_tokens": 81,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "completion_tokens_details": {
+        "reasoning_tokens": 0
+      }
+    },
+    "system_fingerprint": "fp_5050236cbd"
+  },
+  "{\"messages\": [{\"content\": \"What is 2 + 2?\", \"role\": \"user\"}, {\"role\": \"assistant\", \"tool_calls\": [{\"function\": {\"arguments\": \"{'arg1': 2, 'arg2': 2}\", \"name\": \"add\"}, \"id\": \"call_IGMNPiJXFqOoPWlvPCNszDJG\", \"type\": \"function\"}]}, {\"content\": \"{'arg1': 2, 'arg2': 2, 'result': 4}\", \"role\": \"tool\", \"tool_call_id\": \"call_IGMNPiJXFqOoPWlvPCNszDJG\"}], \"model\": \"gpt-4o\", \"path\": \"chat/completions\"}": {
+    "id": "chatcmpl-AEDr4jQCexve1KhxmFjSzvJhoZ3jN",
+    "object": "chat.completion",
+    "created": 1727953214,
+    "model": "gpt-4o-2024-08-06",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "2 + 2 equals 4.",
+          "refusal": null
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 64,
+      "completion_tokens": 8,
+      "total_tokens": 72,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "completion_tokens_details": {
+        "reasoning_tokens": 0
+      }
+    },
+    "system_fingerprint": "fp_2f406b9113"
+  }
+}

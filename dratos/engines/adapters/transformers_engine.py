@@ -9,7 +9,7 @@ from transformers import (
     pipeline,
 )
 from .base_engine import BaseEngine
-from dratos.models.serve.utils.prompt_utils import prompt, Prompt
+from dratos.engines.serve.utils.prompt_utils import prompt, Prompt
 import mlflow
 
 

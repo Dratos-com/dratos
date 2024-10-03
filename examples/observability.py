@@ -27,22 +27,14 @@ import  dotenv
 import mlflow
 import asyncio
 
-from dratos import LLM, OpenAIEngine, OpenAIEngineConfig
+from dratos import LLM, OpenAIEngine
 
 dotenv.load_dotenv()
 
 mlflow_client = mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI"))
 api_key = os.getenv("OPENAI_API_KEY")
 
-oai_config = OpenAIEngineConfig(data={"api_key": api_key, 
-                                      "base_url": "https://api.openai.com/v1", 
-                                      "temperature": 0.5, 
-                                      "max_tokens": 3000, 
-                                      "top_p": 1, 
-                                      "frequency_penalty": 0, 
-                                      "presence_penalty": 0})
-
-openai_engine = OpenAIEngine(config=oai_config)
+openai_engine = OpenAIEngine(api_key=api_key, base_url="https://api.openai.com/v1")
 
 with mlflow.start_run():
    mlflow.openai.autolog()

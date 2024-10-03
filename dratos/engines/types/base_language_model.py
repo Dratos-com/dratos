@@ -7,9 +7,9 @@ import typing
 
 if typing.TYPE_CHECKING:
     pass
-from typing import Dict, List, Optional
-from dratos.models.adapters.base_engine import BaseEngine
-from dratos.models.adapters.openai_engine import OpenAIEngine, OpenAIEngineConfig
+from typing import Dict, List, Optional, AsyncIterator
+from dratos.engines.adapters.base_engine import BaseEngine
+from dratos.engines.adapters.openai_engine import OpenAIEngine
 
 
 # Define the base input class
@@ -68,19 +68,10 @@ class BaseLanguageModel:
         pass
 
     @abstractmethod
-    async def generate(self, input: Input, **kwargs) -> str:
+    async def generate(self, prompt: str, **kwargs) -> str:
         if not self.is_initialized:
             await self.initialize()
-        prompt = input.to_text()
         return await self.client.generate.remote(prompt, **kwargs)
-
-    async def generate_structured(
-        self, input: Input, structure: dict, **kwargs
-    ) -> dict:
-        if not self.is_initialized:
-            await self.initialize()
-        prompt = input.to_text()
-        return await self.client.generate_structured.remote(prompt, structure, **kwargs)
 
     @property
     def supported_tasks(self) -> List[str]:
@@ -94,41 +85,46 @@ class BaseLanguageModel:
 class LLM(BaseLanguageModel):
     def __init__(
         self,
-        model_name: str = "gpt-4o",
-        config: OpenAIEngineConfig = OpenAIEngineConfig(),
-        engine: BaseEngine = OpenAIEngine(OpenAIEngineConfig())
+        model_name: str,
+        engine: BaseEngine
     ):
         super().__init__(model_name, engine)
-        self.config = config
+        self.model_name = model_name
         self.engine = engine
-        self.engine.model_name = model_name
 
     async def initialize(self):
-        self.engine.initialize(self.config)
+        self.engine.initialize()
 
     async def shutdown(self):
         pass
 
     @abstractmethod
-    async def generate(self, input: Input | str, messages: List[Dict[str, str]] = None, **kwargs) -> str:
+    async def generate(self, 
+                       prompt: dict, 
+                       response_format: str | Dict | None = None,
+                       tools: List[Dict] = None,
+                       messages: List[Dict[str, str]] = None,
+                       **kwargs
+                       ) -> str:
+        if tools is not None and response_format is not None:
+            raise ValueError("Cannot use both 'tools' and 'output_structure' simultaneously.")
         if not self.is_initialized:
             await self.initialize()
-        if isinstance(input, str):
-            prompt = input
-        else:
-            prompt = input.to_text()
-        return await self.engine.generate(prompt, messages, **kwargs)
+        return await self.engine.generate(prompt, self.model_name, response_format, tools, messages, **kwargs)
 
-    async def generate_structured(
-        self, input: Input | str, structure: dict, messages: Optional[List[Dict[str, str]]] = None, **kwargs
-    ) -> dict:
+    async def stream(self, 
+                     prompt: dict, 
+                     response_format: str | Dict | None = None,
+                     tools: List[Dict] = None,
+                     messages: List[Dict[str, str]] = None,
+                     **kwargs
+                     ) -> AsyncIterator[str]:
+        if tools is not None and response_format is not None:
+            raise ValueError("Cannot use both 'tools' and 'output_structure' simultaneously.")
         if not self.is_initialized:
             await self.initialize()
-        if isinstance(input, str):
-            prompt = input
-        else:
-            prompt = input.to_text()
-        return await self.engine.generate_structured(prompt=prompt, structure=structure, messages=messages, **kwargs)
+        async for chunk in self.engine.stream(prompt, self.model_name, response_format, tools, messages, **kwargs):
+            yield chunk
 
     @property
     def supported_tasks(self) -> List[str]:

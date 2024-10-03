@@ -21,17 +21,20 @@ sys.path.append(project_root)
 
 import asyncio
 
-# from dratos.models.obj.base_language_model import LLM
-# from dratos.models.serve.engines.openai_engine import OpenAIEngine, OpenAIEngineConfig
+from dratos import LLM, OpenAIEngine, prompt
 
-from dratos import LLM, OpenAIEngineConfig, OpenAIEngine
 
-oai_config = OpenAIEngineConfig()
-
-openai_engine = OpenAIEngine(config=oai_config)
+openai_engine = OpenAIEngine()
 
 llm = LLM("gpt-4o", openai_engine)
 
-response = asyncio.run(llm.generate("What is the capital of Canada?"))
+@prompt
+def capital_prompt(country):
+   """
+   What is the capital of {{country}}?
+   """
+
+
+response = asyncio.run(llm.generate(capital_prompt("Canada")))
 
 print("\033[94m" + response + "\033[0m")

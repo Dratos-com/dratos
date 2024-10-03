@@ -1,14 +1,8 @@
-
-
 engine = OpenAIEngine(stream=False) # Default to True
 
 # Setting up the LLM
-### Shortesrt form
-llm = LLM("openai/gpt-4o")
-
-### Long form
 llm = LLM(
-    model_name="openai/gpt-4o", 
+    model_name="gpt-4o", 
     engine=engine,
 )
 
@@ -45,16 +39,15 @@ class UserInfo(BaseModel):
 
 
 # Setting up an agent
-
 my_first_agent = Agent(
     llm=llm,
+       completion_setting=completion_setting,
     tools=[],
 )
 
 my_first_agent.generate(
-    prompt=my_prompt, 
-    completion_setting=completion_setting,
-    output_schema=[PydanticObject],
+    prompt=my_prompt,
+    images="file/path/to/image" or binary data,
     )
 
 
@@ -74,8 +67,11 @@ class MemoryModel(BaseModel):
 }
 
 
-memory_1 = Memory(uri="/path/to/memory")
-memory_2 = Memory(uri="/path/to/memory", schema=MemoryModel)
+memory_1 = Memory(uri="/path/to/memory",)
+memory_2 = Memory(
+    uri="/path/to/memory", 
+    embedding_model = "text-embedding-ada-002", 
+    schema=MemoryModel)
 
 
 # Load artifacts

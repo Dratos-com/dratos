@@ -1,5 +1,5 @@
-from dratos.models.adapters.base_engine import *
-from dratos.models.adapters.openai_engine import *
+from dratos.engines.adapters.base_engine import *
+from dratos.engines.adapters.openai_engine import *
 #from dratos.models.adapters.llamacpp_engine import *
 #from dratos.models.adapters.openrouter_engine import *
 #from dratos.models.adapters.transformers_engine import *
