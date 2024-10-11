@@ -188,22 +188,64 @@ class Agent:
     def sync_gen(self, prompt: str, **kwargs):
         import asyncio
 
-        async def collect_stream():
-            result = []
-            async for part in self.stream_old(prompt, **kwargs):
-                result.append(part)
-            return ''.join(result)  # Assuming streaming yields strings
+        async def get_full_response():
+            if not isinstance(prompt, str):
+                raise ValueError("Prompt must be a string")
+            
+            self.pretty(prompt, title="Prompt", 
+                        response_format=self.response_format.__name__ if self.response_format else None, 
+                        tools=[tool.__name__ for tool in self.tools] if self.tools else None)
+            
+            formatted_prompt = self.format_message(prompt, role="user")
+            
+            completion_setting = kwargs if kwargs else self.completion_setting
+
+            if self.chat_history:
+                self.messages.append(formatted_prompt)
+            
+            tools = [tool_definition(tool) for tool in self.tools] if self.tools else None
+
+            response = await self.llm.generate(
+                prompt=formatted_prompt,
+                response_format=self.response_format,
+                tools=tools,
+                messages=self.messages,
+                **completion_setting
+            )
+
+            if self.tools and not isinstance(response, str):
+                for tool in self.tools:
+                    if tool.__name__ == response["name"]:
+                        self.add_response_to_messages(response, role="tool_call")
+                        self.pretty(response, title="Tool call")
+                        result = tool(**response["arguments"])
+                        if self.pass_results_to_llm:
+                            result = tool_result(response["arguments"], result, id=response["id"])
+                            self.pretty(result, title="Tool result")
+                            response = await self.llm.generate(
+                                prompt=result,
+                                response_format=None,
+                                tools=None,
+                                messages=self.messages,
+                                **completion_setting
+                            )
+                        else:
+                            return result
+
+            if self.response_validation:
+                response = self.pydantic_validation(response)
+
+            if self.chat_history:
+                self.add_response_to_messages(response)
+
+            return response
 
         try:
-            # Try getting the running loop
             loop = asyncio.get_running_loop()
             if loop.is_running():
-                # If the loop is running, schedule the task without blocking
-                task = asyncio.ensure_future(collect_stream())
-                return loop.run_until_complete(task)
+                return loop.run_until_complete(get_full_response())
         except RuntimeError:
-            # If no loop is running, create a new loop and run the async generator
-            return asyncio.run(collect_stream())
+            return asyncio.run(get_full_response())
 
     async def async_gen(self, prompt: str, **kwargs):
         if not isinstance(prompt, str):

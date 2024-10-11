@@ -46,4 +46,7 @@ def example_function():
 
 🛑 **PRO TIP** 🛑 **First Run:** Run the test, get the actual response from the terminal, copy-paste it into the docstring.
 
+# Streaming responses
+Note that when streaming responses, two streams cannot be simultaneously streamed in the terminal. And so in that event, streams will be misformatted. However a single stream can be streamed simultanously by two distinct interface (e.g. terminal and app, etc)
 
+Two functions within the Agent class: `sync_gen()` returns the complete response once it's generated and `async_gen()`. async_gen() support response streaming.
