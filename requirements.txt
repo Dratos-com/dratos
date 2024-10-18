@@ -9,3 +9,4 @@ python-ulid==2.7.0
 torch==2.4.1
 transformers==4.45.1
 outlines==0.0.46
+tiktoken==0.8.0

@@ -2,9 +2,11 @@ name: CI
 
 on:
   push:
-    branches: [ master ]
+    branches:
+      - '**'  # This will run the workflow on every push to any branch
   pull_request:
-    branches: [ master ]
+    branches:
+      - '**'  # This will run the workflow on pull requests to any branch
 
 jobs:
   build:
@@ -24,4 +26,4 @@ jobs:
         pip install pytest
     - name: Run tests
       run: |
-        pytest -v --doctest-modules examples/test_*
+        pytest
