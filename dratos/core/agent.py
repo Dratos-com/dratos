@@ -44,7 +44,7 @@ class Agent:
             tools: List[Dict] = None,
             pass_results_to_llm: bool = False, # only with tools
             markdown_response: bool = False,
-            response_format: BaseModel = None,
+            response_model: BaseModel = None,
             response_validation: bool = False, # only with reponse_format
             completion_setting: Dict = {},
         ):
@@ -54,7 +54,7 @@ class Agent:
         self.chat_history = chat_history
         self.tools = tools
         self.pass_results_to_llm = pass_results_to_llm
-        self.response_format = response_format
+        self.response_model = response_model
         self.response_validation = response_validation
         self.assistant_name = "assistant"
         self.user_name = "user"
@@ -68,16 +68,16 @@ class Agent:
             self.pretty(system_prompt, title="System prompt")
             self.add_response_to_messages(system_prompt, role="system")
 
-        if tools is not None and response_format is not None:
-            raise ValueError("Cannot use both 'tools' and 'response_format'.")
+        if tools is not None and response_model is not None:
+            raise ValueError("Cannot use both 'tools' and 'response_model'.")
         
         if pass_results_to_llm:
             if tools is None:
                 raise ValueError("'pass_results_to_llm' requires 'tools'.")
         
         if response_validation:
-            if response_format is None:
-                raise ValueError("A response can only be validated if a `response_format` is provided.")
+            if response_model is None:
+                raise ValueError("A response can only be validated if a `response_model` is provided.")
 
     def pretty(self, message: str, title: str, **kwargs):
         if not self.verbose:
@@ -111,7 +111,7 @@ class Agent:
             kwargs_text = Text("\n".join(f"{k}: {v}" for k, v in kwargs.items()), style="bright_black")
             logger.info(kwargs_text)
 
-    async def pretty_stream(self, prompt: str, response_format: str, tools: List[Dict], messages: List[Dict], completion_setting: Dict):
+    async def pretty_stream(self, prompt: str, response_model: str, tools: List[Dict], messages: List[Dict], completion_setting: Dict):
         console = Console()
         try:
             tokenizer = tiktoken.encoding_for_model(self.llm.model_name)
@@ -122,7 +122,7 @@ class Agent:
             response = ""
             tokens = 0
             async for chunk in self.llm.stream(prompt, 
-                                    response_format=self.response_format, 
+                                    response_format=self.response_model, 
                                     tools=tools, 
                                     messages=self.messages, 
                                     **completion_setting):
@@ -178,7 +178,7 @@ class Agent:
         parsed_json = extract_json_from_str(response)
         parameters = json.dumps(parsed_json)
         try:
-            model = self.response_format.__pydantic_validator__.validate_json(parameters, strict=True)
+            model = self.response_model.__pydantic_validator__.validate_json(parameters, strict=True)
             logger.info(f"✅ Response format is valid")
             return model
         except Exception as e:
@@ -193,7 +193,7 @@ class Agent:
                 raise ValueError("Prompt must be a string")
             
             self.pretty(prompt, title="Prompt", 
-                        response_format=self.response_format.__name__ if self.response_format else None, 
+                        response_model=self.response_model.__name__ if self.response_model else None, 
                         tools=[tool.__name__ for tool in self.tools] if self.tools else None)
             
             formatted_prompt = self.format_message(prompt, role="user")
@@ -205,9 +205,11 @@ class Agent:
             
             tools = [tool_definition(tool) for tool in self.tools] if self.tools else None
 
+            response_model = self.response_model if self.response_model else None
+
             response = await self.llm.generate(
                 prompt=formatted_prompt,
-                response_format=self.response_format,
+                response_format=response_model,
                 tools=tools,
                 messages=self.messages,
                 **completion_setting
@@ -251,7 +253,7 @@ class Agent:
         if not isinstance(prompt, str):
             raise ValueError("Prompt must be a string")
         self.pretty(prompt, title="Prompt", 
-                    response_format=self.response_format.__name__ if self.response_format else None, 
+                    response_model=self.response_model.__name__ if self.response_model else None, 
                     tools=[tool.__name__ for tool in self.tools] if self.tools else None)
         prompt = self.format_message(prompt, role="user")
         
@@ -269,7 +271,7 @@ class Agent:
 
         response = ""
         async for chunk in self.pretty_stream(prompt, 
-                                            response_format=self.response_format, 
+                                            response_format=self.response_model, 
                                             tools=tools, 
                                             messages=self.messages, 
                                             completion_setting=completion_setting):

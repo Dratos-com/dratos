@@ -44,7 +44,7 @@ def structured_generation(prompt):
     agent = Agent(
         name="agent",
         llm=llm,
-        response_format=Capital,
+        response_model=Capital,
         response_validation=True,
     )
 

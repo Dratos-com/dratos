@@ -68,7 +68,7 @@ def capital_prompt(country):
 agent_without_tool = Agent(
     llm=llm,
     system_prompt="You are a helpful assistant.",
-    response_format=Capital,
+    response_model=Capital,
     response_validation=True,
 )
 response = asyncio.run(agent_without_tool.generate(capital_prompt("Canada")))
