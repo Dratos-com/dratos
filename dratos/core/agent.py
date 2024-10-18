@@ -1,6 +1,6 @@
 from typing import List, Dict, Type
 import json
-from dratos.engines.types.base_language_model import BaseLanguageModel
+from dratos.models.types.LLM import LLM
 from pydantic import BaseModel
 
 from dratos.utils import extract_json_from_str
@@ -37,7 +37,7 @@ class Agent:
     def __init__(
             self,
             name: str,
-            llm: BaseLanguageModel,
+            llm: LLM,
             system_prompt: str = None,
             verbose: bool = False,
             chat_history: bool = False,

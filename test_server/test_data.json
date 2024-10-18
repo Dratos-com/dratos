@@ -185,5 +185,43 @@
       }
     },
     "system_fingerprint": "fp_2f406b9113"
+  },
+  "{\"messages\": [{\"content\": \"What is the capital of Canada?\", \"role\": \"user\"}], \"model\": \"gpt-4o\", \"path\": \"chat/completions\", \"response_format\": {\"type\": \"json_object\"}}": {
+    "error": {
+      "message": "'messages' must contain the word 'json' in some form, to use 'response_format' of type 'json_object'.",
+      "type": "invalid_request_error",
+      "param": "messages",
+      "code": null
+    }
+  },
+  "{\"messages\": [{\"content\": \"What is the capital of Canada?\", \"role\": \"user\"}], \"model\": \"gpt-4o-2024-08-06\", \"path\": \"chat/completions\", \"response_format\": {\"json_schema\": {\"name\": \"Capital\", \"schema\": {\"additionalProperties\": false, \"properties\": {\"capital\": {\"title\": \"Capital\", \"type\": \"string\"}, \"country\": {\"title\": \"Country\", \"type\": \"string\"}}, \"required\": [\"capital\", \"country\"], \"title\": \"Capital\", \"type\": \"object\"}, \"strict\": true}, \"type\": \"json_schema\"}, \"stream\": false}": {
+    "id": "chatcmpl-AHBOTJz3uUgsTV3ouSAD8Ujpyb9MV",
+    "object": "chat.completion",
+    "created": 1728658737,
+    "model": "gpt-4o-2024-08-06",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "{\"capital\":\"Ottawa\",\"country\":\"Canada\"}",
+          "refusal": null
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 61,
+      "completion_tokens": 10,
+      "total_tokens": 71,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "completion_tokens_details": {
+        "reasoning_tokens": 0
+      }
+    },
+    "system_fingerprint": "fp_6b68a8204b"
   }
 }

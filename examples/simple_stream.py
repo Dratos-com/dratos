@@ -35,13 +35,14 @@ llm = LLM(
 @prompt
 def poem_prompt(country):
    """
-   Write a short poem about {{country}}
+   Write a very short poem in markdown format about {{country}}
    """
 
 agent_with_tool = Agent(
     name="agent_with_tool",
     llm=llm,
     verbose=True,
+    markdown_response=True,
 )
 
 async def get_final_result():
