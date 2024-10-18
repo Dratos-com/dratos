@@ -1,6 +1,7 @@
 import json
 import torch
 import inspect
+from pydantic import BaseModel
 from typing import Callable, Dict, Any
 
 def tool_definition(tool: Callable) -> Dict:
@@ -74,7 +75,7 @@ def extract_json_from_str(response: str):
     try:
         json_start = response.index("{")
         json_end = response.rfind("}")
-        return json.loads(response[json_start : json_end + 1])
+        return json.loads(response[json_start : json_end + 1]), response[0:json_start], response[json_end + 1:]
     except Exception as e:
         raise ValueError("No valid JSON structure found in the input string")
 
@@ -90,3 +91,36 @@ def get_device():
         return torch.device("cuda")
     else:
         return torch.device("cpu")
+
+def pydantic_to_openai_schema(model: type[BaseModel]) -> dict:
+    """Convert Pydantic model to OpenAI schema."""
+    schema = model.model_json_schema()
+    return _pydantic_to_openai_schema(schema)
+
+def _pydantic_to_openai_schema(schema: dict) -> dict:
+    """Convert Pydantic schema to OpenAI schema with required flag in each property."""
+    openai_schema = {}
+    
+    required_fields = set(schema.get("required", []))  # Convert required list to a set for easy lookup
+    
+    if schema["type"] == "object":
+        for prop, details in schema.get("properties", {}).items():
+            # Recursively handle nested properties if necessary
+            if "allOf" in details:
+                prop_schema = _pydantic_to_openai_schema(details["allOf"][0])
+            elif details.get("type") == "array" and "items" in details:
+                prop_schema = _pydantic_to_openai_schema(details["items"])
+            else:
+                prop_schema = details  # Copy the details as is
+
+            # Add whether the property is required directly within its definition
+            prop_schema["required"] = prop in required_fields
+            
+            # Add the property to the main schema
+            openai_schema[prop] = prop_schema
+    
+    # Add pattern if it exists at the root level
+    if "pattern" in schema:
+        openai_schema["pattern"] = schema["pattern"]
+
+    return openai_schema

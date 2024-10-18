@@ -4,15 +4,18 @@ from dratos.models.types.LLM import LLM
 from pydantic import BaseModel
 
 from dratos.utils import extract_json_from_str
-from dratos.utils import tool_result, tool_definition
+from dratos.utils import tool_result, tool_definition, pydantic_to_openai_schema
+
 
 from rich import print as rprint
+from rich.syntax import Syntax
 from rich.panel import Panel
 from rich.markdown import Markdown
 from rich.style import Style
 from rich.text import Text
 from rich.live import Live
-from rich.console import Console
+from rich.console import Console, Group
+
 
 import tiktoken
 
@@ -98,14 +101,28 @@ class Agent:
         except KeyError:
             tokenizer = tiktoken.encoding_for_model("gpt-4o")
         
-        message = str(message)
         title = f"{title} ({tokens} tokens)"
 
-        rprint(Panel(Markdown(str(message)) if self.markdown_response else str(message), 
-                         title=title, 
-                         title_align="left", 
-                         style=Style(color=color)
-                         ))
+        if self.markdown_response:
+            content = Markdown(str(message))
+        else:
+            try:
+                json_data, start, end = extract_json_from_str(message)
+                json_string = json.dumps(json_data, indent=4)
+                json_content = Syntax(json_string, "json", theme="monokai", line_numbers=False)
+                content = Group(
+                Text(start),
+                json_content,
+                    Text(end)
+                )
+            except Exception as e:
+                content = str(message)
+
+        rprint(Panel(content, 
+                    title=title, 
+                    title_align="left", 
+                    style=Style(color=color)
+                    ))
 
         if kwargs:
             kwargs_text = Text("\n".join(f"{k}: {v}" for k, v in kwargs.items()), style="bright_black")
@@ -175,7 +192,7 @@ class Agent:
 
     def pydantic_validation(self, response:str)-> Type[BaseModel]:
         """Validates the response using Pydantic."""
-        parsed_json = extract_json_from_str(response)
+        parsed_json, _, _ = extract_json_from_str(response)
         parameters = json.dumps(parsed_json)
         try:
             model = self.response_model.__pydantic_validator__.validate_json(parameters, strict=True)
@@ -205,7 +222,14 @@ class Agent:
             
             tools = [tool_definition(tool) for tool in self.tools] if self.tools else None
 
-            response_model = self.response_model if self.response_model else None
+            if not self.messages and not self.llm.support_pydantic:
+                response_model = pydantic_to_openai_schema(self.response_model) if self.response_model else None
+                self.messages.append({"role": "system", "content": 
+                                      f"Always respond in the following Json format:\
+                                      {json.dumps(response_model)}"})
+                self.pretty(self.messages[0]["content"], title="System prompt")
+            else:
+                response_model = self.response_model
 
             response = await self.llm.generate(
                 prompt=formatted_prompt,
@@ -233,6 +257,8 @@ class Agent:
                             )
                         else:
                             return result
+            
+            self.pretty(response, title="Response")
 
             if self.response_validation:
                 response = self.pydantic_validation(response)

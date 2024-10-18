@@ -24,7 +24,6 @@ from dratos import OpenAIEngine
 
 from pydantic import BaseModel
 
-
 def structured_generation(prompt):
     """
     Generate a text completion for a given prompt.
@@ -46,6 +45,7 @@ def structured_generation(prompt):
         llm=llm,
         response_model=Capital,
         response_validation=True,
+        # verbose=True,
     )
 
     return agent.sync_gen(prompt)

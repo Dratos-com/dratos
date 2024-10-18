@@ -25,7 +25,6 @@ class OpenAIEngine(BaseEngine):
         super().__init__()
         self.api_key = api_key
         is_test_env = os.getenv("IS_TEST_ENV")
-        logging.info("\033[94mTEST ENV: \033[0m", is_test_env)
         
         if is_test_env == 'true':
             os.environ["ENGINE"] = "OPENAI"
@@ -78,7 +77,7 @@ class OpenAIEngine(BaseEngine):
                         model=model_name,
                         messages=messages,
                         response_format={"type": "json_object"},
-                        
+
                         **kwargs,
                     )
         elif tools is not None:
