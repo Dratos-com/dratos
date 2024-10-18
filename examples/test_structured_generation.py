@@ -51,3 +51,33 @@ def structured_generation(prompt):
     return agent.sync_gen(prompt)
 
 # print(structured_generation("What is the capital of Canada?"))
+
+
+def structured_generation_without_support(prompt):
+    """
+    Generate a text completion for a given prompt for an LLM that does not support structured generation.
+
+    >>> structured_generation("What is the capital of Canada?")
+    Capital(capital='Ottawa', country='Canada')
+    """
+
+    llm_without_structured_generation_support = LLM(
+        model_name="gpt-4o", 
+        engine=OpenAIEngine(),
+    )
+    
+    class Capital(BaseModel):
+        capital: str
+        country: str
+
+    agent = Agent(
+        name="agent",
+        llm=llm_without_structured_generation_support,
+        response_model=Capital,
+        response_validation=True,
+        # verbose=True,
+    )
+
+    return agent.sync_gen(prompt)
+
+# print(structured_generation("What is the capital of Canada?"))
