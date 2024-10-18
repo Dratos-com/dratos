@@ -19,7 +19,7 @@ class OpenAIEngine(BaseEngine):
     """
     def __init__(
         self,
-        api_key: str = os.environ.get("OPENAI_API_KEY", ""),
+        api_key: str = os.environ.get("OPENAI_API_KEY"),
         base_url: str = "https://api.openai.com/v1"
     ):
         super().__init__()
@@ -31,6 +31,7 @@ class OpenAIEngine(BaseEngine):
             os.environ["ENGINE"] = "OPENAI"
             logging.info("\033[94mTEST ENV SELECTED\033[0m")
             self.base_url = os.getenv("TEST_API_BASE_URL")
+            self.api_key = ""
         else:
             self.base_url = base_url 
         self.client = None
