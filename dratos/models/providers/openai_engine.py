@@ -19,13 +19,13 @@ class OpenAIEngine(BaseEngine):
     """
     def __init__(
         self,
-        api_key: str = os.environ.get("OPENAI_API_KEY"),
+        api_key: str = os.environ.get("OPENAI_API_KEY", ""),
         base_url: str = "https://api.openai.com/v1"
     ):
         super().__init__()
         self.api_key = api_key
         is_test_env = os.getenv("IS_TEST_ENV")
-        print("\033[94mTEST ENV: \033[0m", is_test_env)
+        logging.info("\033[94mTEST ENV: \033[0m", is_test_env)
         
         if is_test_env == 'true':
             os.environ["ENGINE"] = "OPENAI"
@@ -34,6 +34,15 @@ class OpenAIEngine(BaseEngine):
         else:
             self.base_url = base_url 
         self.client = None
+
+    async def initialize(self) -> None:
+        """
+        Initialize the OpenAI engine with the given configuration.
+        """
+        self.client = AsyncOpenAI(
+            api_key=self.api_key,
+            base_url=self.base_url
+        )
 
     async def generate(
         self,
@@ -125,14 +134,6 @@ class OpenAIEngine(BaseEngine):
             if chunk.choices[0].delta.content is not None:
                 yield chunk.choices[0].delta.content
 
-    async def initialize(self) -> None:
-        """
-        Initialize the OpenAI engine with the given configuration.
-        """
-        self.client = AsyncOpenAI(
-            api_key=self.api_key,
-            base_url=self.base_url
-        )
 
     async def shutdown(self) -> None:
         """
