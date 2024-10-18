@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [ master ]
   pull_request:
-    branches: [ main ]
+    branches: [ master ]
 
 jobs:
   build:
@@ -24,4 +24,4 @@ jobs:
         pip install pytest
     - name: Run tests
       run: |
-        pytest
+        pytest -v --doctest-modules examples/test_*
