@@ -31,7 +31,7 @@ class OpenAIEngine(BaseEngine):
             os.environ["ENGINE"] = "OPENAI"
             logging.info("\033[94mTEST ENV SELECTED\033[0m")
             self.base_url = os.getenv("TEST_API_BASE_URL")
-            self.api_key = ""
+            self.api_key = "TEST_API_KEY"
         else:
             self.base_url = base_url 
         self.client = None
