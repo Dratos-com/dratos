@@ -59,8 +59,6 @@ class Agent:
         self.pass_results_to_llm = pass_results_to_llm
         self.response_model = response_model
         self.response_validation = response_validation
-        self.assistant_name = "assistant"
-        self.user_name = "user"
         self.markdown_response = markdown_response
         self.verbose = verbose
 
@@ -132,7 +130,7 @@ class Agent:
             kwargs_text = Text("\n".join(f"{k}: {v}" for k, v in kwargs.items()), style="bright_black")
             logger.info(kwargs_text)
 
-    async def pretty_stream(self, prompt: str, response_model: str, tools: List[Dict], messages: List[Dict], completion_setting: Dict):
+    async def pretty_stream(self, prompt: str, messages: List[Dict], completion_setting: Dict):
         console = Console()
         try:
             tokenizer = tiktoken.encoding_for_model(self.llm.model_name)
@@ -142,9 +140,7 @@ class Agent:
         async def stream():
             response = ""
             tokens = 0
-            async for chunk in self.llm.stream(prompt, 
-                                    response_format=self.response_model, 
-                                    tools=tools, 
+            async for chunk in self.llm.async_gen(prompt,
                                     messages=self.messages, 
                                     **completion_setting):
                 response += chunk
@@ -170,19 +166,19 @@ class Agent:
 
     def format_message(self, message: str, role: str):
         if role == "user":
-            return {"role": self.user_name, "content": message}
+            return {"role": "user", "content": message}
         elif role == "system":
             return {"role": "system", "content": message}
         else:
-            return {"role": self.assistant_name, "content": message}
+            return {"role": "assistant", "content": message}
     
     def add_response_to_messages(self, message: str, role: str):
         if role == "user":
-            self.messages.append({"role": self.user_name, "content": message})
+            self.messages.append({"role": "user", "content": message})
         elif role == "system":
             self.messages.append({"role": "system", "content": message})
         elif role == "tool_call":
-            self.messages.append({"role": self.assistant_name, "tool_calls": [
+            self.messages.append({"role": "assistant", "tool_calls": [
                                { 
                         "type": "function",
                         "id": message["id"],
@@ -220,19 +216,19 @@ class Agent:
             formatted_prompt = self.format_message(prompt, role="user")
             
             completion_setting = kwargs if kwargs else self.completion_setting
-
-            if self.chat_history:
-                self.messages.append(formatted_prompt)
             
             tools = [tool_definition(tool) for tool in self.tools] if self.tools else None
 
-            response = await self.llm.generate(
+            response = await self.llm.sync_gen(
                 prompt=formatted_prompt,
-                response_format=self.response_model,
+                response_model=self.response_model,
                 tools=tools,
                 messages=self.messages,
                 **completion_setting
             )
+
+            if self.chat_history:
+                self.messages.append(formatted_prompt)
 
             if self.tools and not isinstance(response, str):
                 for tool in self.tools:
@@ -243,9 +239,9 @@ class Agent:
                         if self.pass_results_to_llm:
                             result = tool_result(response["arguments"], result, id=response["id"])
                             self.pretty(result, title="Tool result")
-                            response = await self.llm.generate(
+                            response = await self.llm.sync_gen(
                                 prompt=result,
-                                response_format=None,
+                                response_model=None,
                                 tools=None,
                                 messages=self.messages,
                                 **completion_setting
@@ -273,52 +269,22 @@ class Agent:
     async def async_gen(self, prompt: str, **kwargs):
         if not isinstance(prompt, str):
             raise ValueError("Prompt must be a string")
-        self.pretty(prompt, title="Prompt", 
-                    response_model=self.response_model.__name__ if self.response_model else None, 
-                    tools=[tool.__name__ for tool in self.tools] if self.tools else None)
-        prompt = self.format_message(prompt, role="user")
-        
+
         if kwargs:
             completion_setting = kwargs
         else:
             completion_setting = self.completion_setting
 
-        if self.chat_history:
-            self.messages.append(prompt)
+        formatted_prompt = self.format_message(prompt, role="user")
         
-        tools = None
-        if self.tools:
-            tools = [tool_definition(tool) for tool in self.tools]
-
         response = ""
-        async for chunk in self.pretty_stream(prompt, 
-                                            response_format=self.response_model, 
-                                            tools=tools, 
+        async for chunk in self.pretty_stream(formatted_prompt,
                                             messages=self.messages, 
                                             completion_setting=completion_setting):
+            if self.chat_history:
+                self.messages.append(formatted_prompt)
             response += chunk
             yield chunk
-
-        if self.tools and not isinstance(response, str):
-            for tool in self.tools:
-                if tool.__name__ == response["name"]:
-                    self.add_response_to_messages(response, role="tool_call")
-                    self.pretty(response, title="Tool call")
-                    result = tool(**response["arguments"])
-                    if self.pass_results_to_llm:
-                        result = tool_result(response["arguments"], result, id=response["id"])
-                        self.pretty(result, title="Tool result")
-                        async for chunk in self.pretty_stream(prompt=result, 
-                                                              response_format=None, 
-                                                              tools=None, 
-                                                              messages=self.messages, 
-                                                              completion_setting=completion_setting):
-                            yield chunk
-                    else:
-                        yield result
-
-        if self.response_validation:
-            response = self.pydantic_validation(response)
 
         if self.chat_history:
             self.add_response_to_messages(response)

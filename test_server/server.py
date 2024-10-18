@@ -3,7 +3,20 @@ import requests
 import json
 import os
 
+import logging
+from rich.logging import RichHandler
+
+logging.basicConfig(
+    level="INFO",
+    format="%(message)s",
+    datefmt="[%X]",
+    handlers=[RichHandler()]
+)
+logger = logging.getLogger("rich")
+
+
 app = Flask(__name__)
+
 
 # Load test data
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -21,7 +34,7 @@ def api(any_path=None):
         return jsonify(test_data[request_key])
     else:
         try:
-            print("\033[94mMISSING KEY IN TEST_DATA.JSON, FORWARDING TO ACTUAL API\033[0m")
+            logger.info("\033[94mMISSING KEY IN TEST_DATA.JSON, FORWARDING TO ACTUAL API\033[0m")
             # Get the target base URL from the environment variable
             engine = os.getenv("ENGINE")
             base_url = os.getenv(f"{engine}_BASE_URL")

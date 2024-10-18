@@ -44,11 +44,11 @@ class OpenAIEngine(BaseEngine):
             base_url=self.base_url
         )
 
-    async def generate(
+    async def sync_gen(
         self,
         prompt: dict, 
         model_name: str = "gpt-4o",
-        output_structure: BaseModel | str | None = None,
+        response_model: BaseModel | None = None,
         tools: List[Dict] = None,
         messages: List[Dict[str, str]] = None,
         **kwargs,
@@ -64,12 +64,12 @@ class OpenAIEngine(BaseEngine):
         else:
             messages.append(prompt)
 
-        if output_structure is not None:
+        if response_model is not None:
             if model_name.startswith("gpt-4o-"):
                 response = await self.client.beta.chat.completions.parse(
                     model=model_name,
                     messages=messages,
-                    response_format=output_structure,
+                    response_format=response_model,
                     **kwargs,
                 )
             else:
@@ -105,25 +105,21 @@ class OpenAIEngine(BaseEngine):
             }
             return result
 
-    async def stream(
+    async def async_gen(
         self,
         prompt: dict, 
         model_name: str = "gpt-4",
-        output_structure: BaseModel | Dict | None = None,
-        tools: List[Dict] = None,
         messages: List[Dict[str, str]] = None,
         **kwargs,
     ) -> AsyncIterator[str]:
         if not self.client:
             await self.initialize()
 
-        # Prepare messages similar to the generate method
         if messages is None:
-            messages = [prompt]
+            messages = [{"role": "user", "content": prompt}]
         else:
             messages.append(prompt)
 
-        # Set up the streaming call
         stream = await self.client.chat.completions.create(
             model=model_name,
             messages=messages,
@@ -134,7 +130,6 @@ class OpenAIEngine(BaseEngine):
         async for chunk in stream:
             if chunk.choices[0].delta.content is not None:
                 yield chunk.choices[0].delta.content
-
 
     async def shutdown(self) -> None:
         """

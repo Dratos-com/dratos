@@ -29,31 +29,27 @@ class LLM():
         pass
 
     @abstractmethod
-    async def generate(self, 
+    async def sync_gen(self, 
                        prompt: dict, 
-                       response_format: str | Dict | None = None,
+                       response_model: str | Dict | None = None,
                        tools: List[Dict] = None,
                        messages: List[Dict[str, str]] = None,
                        **kwargs
                        ) -> str:
-        if tools is not None and response_format is not None:
-            raise ValueError("Cannot use both 'tools' and 'output_structure' simultaneously.")
+        if tools is not None and response_model is not None:
+            raise ValueError("Cannot use both 'tools' and 'response_model' simultaneously.")
         if not self.is_initialized:
             await self.initialize()
-        return await self.engine.generate(prompt, self.model_name, response_format, tools, messages, **kwargs)
+        return await self.engine.sync_gen(prompt, self.model_name, response_model, tools, messages, **kwargs)
 
-    async def stream(self, 
+    async def async_gen(self, 
                      prompt: dict, 
-                     response_format: str | Dict | None = None,
-                     tools: List[Dict] = None,
                      messages: List[Dict[str, str]] = None,
                      **kwargs
                      ) -> AsyncIterator[str]:
-        if tools is not None and response_format is not None:
-            raise ValueError("Cannot use both 'tools' and 'output_structure' simultaneously.")
         if not self.is_initialized:
             await self.initialize()
-        async for chunk in self.engine.stream(prompt, self.model_name, response_format, tools, messages, **kwargs):
+        async for chunk in self.engine.async_gen(prompt, self.model_name, messages, **kwargs):
             yield chunk
 
     @property

@@ -18,11 +18,3 @@ class BaseEngine(ABC):
     @abstractmethod
     async def shutdown(self) -> None:
         """Shutdown the engine and free resources."""
-        
-    @abstractmethod
-    async def generate(self, prompt: str, messages: List[Dict[str, str]] = None, **kwargs) -> Any:
-        """Generate text based on the input prompt."""
-    
-    @abstractmethod
-    def get_supported_models(self) -> List[str]:
-        """Return a list of tasks supported by this engine."""
