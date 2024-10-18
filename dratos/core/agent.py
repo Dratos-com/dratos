@@ -269,7 +269,8 @@ class Agent:
     async def async_gen(self, prompt: str, **kwargs):
         if not isinstance(prompt, str):
             raise ValueError("Prompt must be a string")
-
+        if self.tools or self.response_model:
+            raise ValueError("Cannot use 'tools' and 'response_model' with async_gen, use sync_gen instead.")
         if kwargs:
             completion_setting = kwargs
         else:
@@ -281,12 +282,11 @@ class Agent:
         async for chunk in self.pretty_stream(formatted_prompt,
                                             messages=self.messages, 
                                             completion_setting=completion_setting):
-            if self.chat_history:
-                self.messages.append(formatted_prompt)
             response += chunk
             yield chunk
 
         if self.chat_history:
+            self.messages.append(formatted_prompt)
             self.add_response_to_messages(response)
     
     def pydantic_schema_description(self):
