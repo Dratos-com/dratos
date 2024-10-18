@@ -67,9 +67,13 @@ class Agent:
         logger.info(f"🎬 Initializing {name}...")
 
         self.messages = []
-        if system_prompt:
-            self.pretty(system_prompt, title="System prompt")
-            self.add_response_to_messages(system_prompt, role="system")
+
+        if self.response_model and not self.llm.support_pydantic:
+            self.messages.append({"role": "system", "content": 
+                                    f"{system_prompt if system_prompt else ''}\
+                                    \n{self.pydantic_schema_description()}"})
+            
+            self.pretty(self.messages[0]["content"], title="System prompt")
 
         if tools is not None and response_model is not None:
             raise ValueError("Cannot use both 'tools' and 'response_model'.")
@@ -208,7 +212,7 @@ class Agent:
         async def get_full_response():
             if not isinstance(prompt, str):
                 raise ValueError("Prompt must be a string")
-            
+
             self.pretty(prompt, title="Prompt", 
                         response_model=self.response_model.__name__ if self.response_model else None, 
                         tools=[tool.__name__ for tool in self.tools] if self.tools else None)
@@ -222,18 +226,9 @@ class Agent:
             
             tools = [tool_definition(tool) for tool in self.tools] if self.tools else None
 
-            if not self.messages and not self.llm.support_pydantic:
-                response_model = pydantic_to_openai_schema(self.response_model) if self.response_model else None
-                self.messages.append({"role": "system", "content": 
-                                      f"Always respond in the following Json format:\
-                                      {json.dumps(response_model)}"})
-                self.pretty(self.messages[0]["content"], title="System prompt")
-            else:
-                response_model = self.response_model
-
             response = await self.llm.generate(
                 prompt=formatted_prompt,
-                response_format=response_model,
+                response_format=self.response_model,
                 tools=tools,
                 messages=self.messages,
                 **completion_setting
@@ -327,4 +322,10 @@ class Agent:
 
         if self.chat_history:
             self.add_response_to_messages(response)
-        
+    
+    def pydantic_schema_description(self):
+        response_model = pydantic_to_openai_schema(self.response_model)
+
+        return f"Always respond following the specifications:\
+                {json.dumps(pydantic_to_openai_schema(response_model))}\
+                \nYour response will include all required properties in a Json format."

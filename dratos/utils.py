@@ -98,28 +98,26 @@ def pydantic_to_openai_schema(model: type[BaseModel]) -> dict:
     return _pydantic_to_openai_schema(schema)
 
 def _pydantic_to_openai_schema(schema: dict) -> dict:
-    """Convert Pydantic schema to OpenAI schema with required flag in each property."""
-    openai_schema = {}
-    
-    required_fields = set(schema.get("required", []))  # Convert required list to a set for easy lookup
-    
+    """Convert Pydantic schema to OpenAI schema."""
+    openai_schema = {
+        "properties": schema.get("properties", {}),
+    }
+    if "required" in schema:
+        openai_schema["required"] = schema["required"]
+    if "description" in schema:
+        openai_schema["description"] = schema["description"]
     if schema["type"] == "object":
-        for prop, details in schema.get("properties", {}).items():
-            # Recursively handle nested properties if necessary
+        for prop, details in openai_schema["properties"].items():
             if "allOf" in details:
-                prop_schema = _pydantic_to_openai_schema(details["allOf"][0])
+                openai_schema["properties"][prop] = _pydantic_to_openai_schema(
+                    details["allOf"][0]
+                )
             elif details.get("type") == "array" and "items" in details:
-                prop_schema = _pydantic_to_openai_schema(details["items"])
-            else:
-                prop_schema = details  # Copy the details as is
-
-            # Add whether the property is required directly within its definition
-            prop_schema["required"] = prop in required_fields
-            
-            # Add the property to the main schema
-            openai_schema[prop] = prop_schema
+                openai_schema["properties"][prop]["items"] = _pydantic_to_openai_schema(
+                    details["items"]
+                )
     
-    # Add pattern if it exists at the root level
+    # Add pattern if it exists
     if "pattern" in schema:
         openai_schema["pattern"] = schema["pattern"]
 
