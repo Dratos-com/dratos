@@ -223,5 +223,67 @@
       }
     },
     "system_fingerprint": "fp_6b68a8204b"
+  },
+  "{\"messages\": [\"Say hi in french\"], \"model\": \"gpt-4o\", \"path\": \"chat/completions\"}": {
+    "error": {
+      "message": "Invalid type for 'messages[0]': expected an object, but got a string instead.",
+      "type": "invalid_request_error",
+      "param": "messages[0]",
+      "code": "invalid_type"
+    }
+  },
+  "{\"messages\": [\"What is the capital of Canada?\"], \"model\": \"gpt-4o-2024-08-06\", \"path\": \"chat/completions\", \"response_format\": {\"json_schema\": {\"name\": \"Capital\", \"schema\": {\"additionalProperties\": false, \"properties\": {\"capital\": {\"title\": \"Capital\", \"type\": \"string\"}, \"country\": {\"title\": \"Country\", \"type\": \"string\"}}, \"required\": [\"capital\", \"country\"], \"title\": \"Capital\", \"type\": \"object\"}, \"strict\": true}, \"type\": \"json_schema\"}, \"stream\": false}": {
+    "error": {
+      "message": "Invalid type for 'messages[0]': expected an object, but got a string instead.",
+      "type": "invalid_request_error",
+      "param": "messages[0]",
+      "code": "invalid_type"
+    }
+  },
+  "{\"messages\": [\"What is 2 + 2?\"], \"model\": \"gpt-4o\", \"path\": \"chat/completions\", \"tool_choice\": \"auto\", \"tools\": [{\"function\": {\"description\": \"add definition.\", \"name\": \"add\", \"parameters\": {\"additionalProperties\": false, \"properties\": {\"arg1\": {\"description\": \"arg1 parameter.\", \"type\": \"integer\"}, \"arg2\": {\"description\": \"arg2 parameter.\", \"type\": \"integer\"}}, \"required\": [\"arg1\", \"arg2\"], \"type\": \"object\"}}, \"type\": \"function\"}]}": {
+    "error": {
+      "message": "Invalid type for 'messages[0]': expected an object, but got a string instead.",
+      "type": "invalid_request_error",
+      "param": "messages[0]",
+      "code": "invalid_type"
+    }
+  },
+  "{\"messages\": [{\"content\": \"{'arg1': 2, 'arg2': 2, 'result': 4}\", \"role\": \"tool\", \"tool_call_id\": \"call_IGMNPiJXFqOoPWlvPCNszDJG\"}], \"model\": \"gpt-4o\", \"path\": \"chat/completions\"}": {
+    "error": {
+      "message": "Invalid parameter: messages with role 'tool' must be a response to a preceeding message with 'tool_calls'.",
+      "type": "invalid_request_error",
+      "param": "messages.[0].role",
+      "code": null
+    }
+  },
+  "{\"messages\": [{\"role\": \"assistant\", \"tool_calls\": [{\"function\": {\"arguments\": \"{'arg1': 2, 'arg2': 2}\", \"name\": \"add\"}, \"id\": \"call_IGMNPiJXFqOoPWlvPCNszDJG\", \"type\": \"function\"}]}, {\"content\": \"{'arg1': 2, 'arg2': 2, 'result': 4}\", \"role\": \"tool\", \"tool_call_id\": \"call_IGMNPiJXFqOoPWlvPCNszDJG\"}], \"model\": \"gpt-4o\", \"path\": \"chat/completions\"}": {
+    "id": "chatcmpl-AK3ItcC8b8cZuI67jECibElv2rKxD",
+    "object": "chat.completion",
+    "created": 1729342623,
+    "model": "gpt-4o-2024-08-06",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "The sum of 2 and 2 is 4.",
+          "refusal": null
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 52,
+      "completion_tokens": 12,
+      "total_tokens": 64,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "completion_tokens_details": {
+        "reasoning_tokens": 0
+      }
+    },
+    "system_fingerprint": "fp_a7d06e42a7"
   }
 }

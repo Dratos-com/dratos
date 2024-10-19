@@ -28,8 +28,8 @@ import asyncio
 
 from dratos import LLM, OpenAIEngine
 
-mlflow_client = mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI"))
-api_key = os.environ.get("OPENAI_API_KEY")
+mlflow_client = mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI"))
+api_key = os.getenv("OPENAI_API_KEY")
 
 openai_engine = OpenAIEngine(api_key=api_key, base_url="https://api.openai.com/v1")
 

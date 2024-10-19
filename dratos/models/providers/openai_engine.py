@@ -55,8 +55,10 @@ class OpenAIEngine(BaseEngine):
 
         if messages is None:
             messages = [{"role": "user", "content": prompt}]
+        elif isinstance(prompt, str):
+            messages = [{"role": "user", "content": prompt}]
         else:
-            messages.append({"role": "user", "content": prompt})
+            messages.append(prompt) # tools result are already formatted
 
         if response_model is not None:
             if model_name.startswith("gpt-4o-"):
@@ -111,8 +113,10 @@ class OpenAIEngine(BaseEngine):
 
         if messages is None:
             messages = [{"role": "user", "content": prompt}]
-        else:
-            messages.append({"role": "user", "content": prompt})
+        elif isinstance(messages, str):
+            messages = [{"role": "user", "content": messages}]
+        else: 
+            messages.append(prompt) # tools result are already formatted
 
         stream = await self.client.chat.completions.create(
             model=model_name,

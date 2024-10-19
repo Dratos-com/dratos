@@ -54,7 +54,7 @@ def pass_results_to_llm(prompt):
     Generate a text completion for a given prompt.
 
     >>> pass_results_to_llm("What is 2 + 2?")
-    '2 + 2 equals 4.'
+    'The sum of 2 and 2 is 4.'
     """
     llm = LLM(
         model_name="gpt-4o", 

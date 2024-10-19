@@ -1,11 +1,11 @@
-from typing import List, Dict, Type
+from typing import List, Dict, Type, Any
 import json
 from dratos.models.types.LLM import LLM
 from pydantic import BaseModel
 
-from dratos.utils import extract_json_from_str
-from dratos.utils import tool_result, tool_definition, pydantic_to_openai_schema
+from dratos.utils import tool_result, tool_definition, pydantic_to_openai_schema, extract_json_from_str
 
+from dratos.models.providers.openai_engine import OpenAIEngine
 
 from rich import print as rprint
 from rich.syntax import Syntax
@@ -21,6 +21,8 @@ import tiktoken
 
 import logging
 from rich.logging import RichHandler
+
+
 
 
 logging.basicConfig(
@@ -43,7 +45,7 @@ class Agent:
             llm: LLM,
             system_prompt: str = None,
             verbose: bool = False,
-            chat_history: bool = False,
+            history: bool = False,
             tools: List[Dict] = None,
             pass_results_to_llm: bool = False, # only with tools
             markdown_response: bool = False,
@@ -54,7 +56,7 @@ class Agent:
         self.name = name
         self.llm = llm
         self.completion_setting = completion_setting
-        self.chat_history = chat_history
+        self.history = history
         self.tools = tools
         self.pass_results_to_llm = pass_results_to_llm
         self.response_model = response_model
@@ -84,7 +86,7 @@ class Agent:
             if response_model is None:
                 raise ValueError("A response can only be validated if a `response_model` is provided.")
 
-    def pretty(self, message: str, title: str, **kwargs):
+    def pretty(self, message: str, title: str):
         if not self.verbose:
             return
         if title == "Response":
@@ -126,10 +128,6 @@ class Agent:
                     style=Style(color=color)
                     ))
 
-        if kwargs:
-            kwargs_text = Text("\n".join(f"{k}: {v}" for k, v in kwargs.items()), style="bright_black")
-            logger.info(kwargs_text)
-
     async def pretty_stream(self, prompt: str, messages: List[Dict], completion_setting: Dict):
         console = Console()
         try:
@@ -164,20 +162,21 @@ class Agent:
             async for chunk, _, _ in stream():
                 yield chunk
 
-    def format_message(self, message: str, role: str):
-        if role == "user":
-            return {"role": "user", "content": message}
-        elif role == "system":
-            return {"role": "system", "content": message}
-        else:
-            return {"role": "assistant", "content": message}
+    def append_message(self, message: str, role: str):
+        return self.messages.append({"role": role, "content": message})
     
-    def add_response_to_messages(self, message: str, role: str):
+    def record_message(self, message: str, role: str):
         if role == "user":
-            self.messages.append({"role": "user", "content": message})
+            title = "Prompt"
+            self.append_message(message, "user")
+        elif role == "tool_result":
+            title = "Tool results"
+            self.append_message(message, "user")
         elif role == "system":
-            self.messages.append({"role": "system", "content": message})
+            title = "System prompt"
+            self.append_message(message, "system")
         elif role == "tool_call":
+            title = "Tool call"
             self.messages.append({"role": "assistant", "tool_calls": [
                                { 
                         "type": "function",
@@ -188,7 +187,10 @@ class Agent:
                         }
                 }]})
         else:
-            self.messages.append({"role": self.assistant_name, "content": message})
+            title = "Response"
+            self.append_message(message, "assistant")
+        
+        self.pretty(message, title)
 
     def pydantic_validation(self, response:str)-> Type[BaseModel]:
         """Validates the response using Pydantic."""
@@ -205,68 +207,62 @@ class Agent:
     def sync_gen(self, prompt: str, **kwargs):
         import asyncio
 
-        async def get_full_response():
+        async def generate():
+            # Setup
             if not isinstance(prompt, str):
                 raise ValueError("Prompt must be a string")
 
-            self.pretty(prompt, title="Prompt", 
-                        response_model=self.response_model.__name__ if self.response_model else None, 
-                        tools=[tool.__name__ for tool in self.tools] if self.tools else None)
-            
-            formatted_prompt = self.format_message(prompt, role="user")
-            
+            self.record_message(prompt, role="user")
+            self.log_agent_info()
+
             completion_setting = kwargs if kwargs else self.completion_setting
-            
             tools = [tool_definition(tool) for tool in self.tools] if self.tools else None
 
+            # Generation
             response = await self.llm.sync_gen(
-                prompt=formatted_prompt,
+                prompt=prompt,
                 response_model=self.response_model,
                 tools=tools,
-                messages=self.messages,
-                **completion_setting
-            )
+                messages=self.messages[:-1] if self.history else [],
+                **completion_setting)
 
-            if self.chat_history:
-                self.messages.append(formatted_prompt)
-
+            # Tool calling
             if self.tools and not isinstance(response, str):
+                self.record_message(response, role="tool_call")
                 for tool in self.tools:
                     if tool.__name__ == response["name"]:
-                        self.add_response_to_messages(response, role="tool_call")
-                        self.pretty(response, title="Tool call")
                         result = tool(**response["arguments"])
                         if self.pass_results_to_llm:
                             result = tool_result(response["arguments"], result, id=response["id"])
-                            self.pretty(result, title="Tool result")
+                            self.record_message(result, role="tool_result")
                             response = await self.llm.sync_gen(
                                 prompt=result,
                                 response_model=None,
                                 tools=None,
-                                messages=self.messages,
-                                **completion_setting
-                            )
+                                messages=self.messages[:-1] if self.history else self.messages[-2:-1],
+                                **completion_setting)
+                            self.record_message(response, role="assistant")
                         else:
                             return result
-            
-            self.pretty(response, title="Response")
+            else:
+                self.record_message(response, role="assistant")
 
+            # Validation
             if self.response_validation:
                 response = self.pydantic_validation(response)
-
-            if self.chat_history:
-                self.add_response_to_messages(response)
 
             return response
 
         try:
             loop = asyncio.get_running_loop()
             if loop.is_running():
-                return loop.run_until_complete(get_full_response())
+                return loop.run_until_complete(generate())
         except RuntimeError:
-            return asyncio.run(get_full_response())
+            return asyncio.run(generate())
 
     async def async_gen(self, prompt: str, **kwargs):
+        
+        # Setup
         if not isinstance(prompt, str):
             raise ValueError("Prompt must be a string")
         if self.tools or self.response_model:
@@ -276,17 +272,18 @@ class Agent:
         else:
             completion_setting = self.completion_setting
 
-        formatted_prompt = self.format_message(prompt, role="user")
+        self.record_message(prompt, role="user")
         
+        # Generation
         response = ""
-        async for chunk in self.pretty_stream(formatted_prompt,
-                                            messages=self.messages, 
+        async for chunk in self.pretty_stream(prompt,
+                                            messages=self.messages[:-1] if self.history else [], 
                                             completion_setting=completion_setting):
             response += chunk
             yield chunk
 
-        if self.chat_history:
-            self.messages.append(formatted_prompt)
+        if self.history:
+            self.messages.append(prompt)
             self.add_response_to_messages(response)
     
     def pydantic_schema_description(self):
@@ -295,3 +292,15 @@ class Agent:
         return f"Always respond following the specifications:\
                 {json.dumps(pydantic_to_openai_schema(response_model))}\
                 \nYour response will include all required properties in a Json format."
+
+    def log_agent_info(self):
+        tools_list = [tool.__name__ for tool in self.tools] if self.tools else None
+        response_model_name = self.response_model.__name__ if self.response_model else None
+        logger.info(f"Tools: {tools_list}")
+        logger.info(f"Response Model: {response_model_name}")
+
+    def tool_result_formatting(self, arguments: Dict, result: Any, id: str):
+        if isinstance(self.llm.engine, OpenAIEngine):
+            return tool_result(arguments, result, id)
+        else: # to adapt for other engines
+            return tool_result(arguments, result, id)
