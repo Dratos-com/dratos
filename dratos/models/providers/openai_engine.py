@@ -10,8 +10,8 @@ from typing import Dict, List, AsyncIterator
 from openai import AsyncOpenAI, OpenAI
 from pydantic import BaseModel
 
-
 from .base_engine import BaseEngine
+
 
 class OpenAIEngine(BaseEngine):
     """
@@ -19,20 +19,14 @@ class OpenAIEngine(BaseEngine):
     """
     def __init__(
         self,
-        api_key: str = os.environ.get("OPENAI_API_KEY"),
+        api_key: str = os.getenv("OPENAI_API_KEY"),
         base_url: str = "https://api.openai.com/v1"
     ):
-        super().__init__()
         self.api_key = api_key
-        is_test_env = os.getenv("IS_TEST_ENV")
+        self.base_url = base_url
+
+        super().__init__(engine="OPENAI")
         
-        if is_test_env == 'true':
-            os.environ["ENGINE"] = "OPENAI"
-            logging.info("\033[94mTEST ENV SELECTED\033[0m")
-            self.base_url = os.getenv("TEST_API_BASE_URL")
-            self.api_key = "TEST_API_KEY"
-        else:
-            self.base_url = base_url 
         self.client = None
 
     async def initialize(self) -> None:
@@ -60,9 +54,9 @@ class OpenAIEngine(BaseEngine):
             await self.initialize()
 
         if messages is None:
-            messages = [prompt]
+            messages = [{"role": "user", "content": prompt}]
         else:
-            messages.append(prompt)
+            messages.append({"role": "user", "content": prompt})
 
         if response_model is not None:
             if model_name.startswith("gpt-4o-"):
@@ -118,7 +112,7 @@ class OpenAIEngine(BaseEngine):
         if messages is None:
             messages = [{"role": "user", "content": prompt}]
         else:
-            messages.append(prompt)
+            messages.append({"role": "user", "content": prompt})
 
         stream = await self.client.chat.completions.create(
             model=model_name,

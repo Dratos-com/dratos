@@ -1,28 +1,28 @@
 from flask import Flask, request, jsonify
 import requests
+import logging
 import json
 import os
 
-import logging
-from rich.logging import RichHandler
-
-logging.basicConfig(
-    level="INFO",
-    format="%(message)s",
-    datefmt="[%X]",
-    handlers=[RichHandler()]
-)
-logger = logging.getLogger("rich")
-
-
 app = Flask(__name__)
 
-
 # Load test data
-current_dir = os.path.dirname(os.path.abspath(__file__))
-test_data_path = os.path.join(current_dir, 'test_data.json')
-with open(test_data_path, 'r') as f:
-    test_data = json.load(f)
+def get_test_data():
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    test_data_path = os.path.join(current_dir, 'test_data.json')
+    with open(test_data_path, 'r') as f:
+        test_data = json.load(f)
+    return test_data, test_data_path
+
+def get_current_engine():
+    shared_file = os.path.join(os.path.dirname(__file__), 'shared_env.json')
+    try:
+        with open(shared_file, 'r') as f:
+            data = json.load(f)
+        os.remove(shared_file)
+        return data.get("ENGINE")
+    except FileNotFoundError:
+        return None
 
 @app.route('/', methods=['POST'])
 @app.route('/<path:any_path>', methods=['POST']) 
@@ -30,13 +30,14 @@ def api(any_path=None):
     request_data = request.json
     request_data["path"] = any_path
     request_key = json.dumps(request_data, sort_keys=True)
+    test_data, test_data_path = get_test_data()
     if request_key in test_data:
         return jsonify(test_data[request_key])
     else:
         try:
-            logger.info("\033[94mMISSING KEY IN TEST_DATA.JSON, FORWARDING TO ACTUAL API\033[0m")
+            logging.info("\033[94mMISSING KEY IN TEST_DATA.JSON, FORWARDING TO ACTUAL API\033[0m")
             # Get the target base URL from the environment variable
-            engine = os.getenv("ENGINE")
+            engine = get_current_engine()
             base_url = os.getenv(f"{engine}_BASE_URL")
             api_key = os.getenv(f"{engine}_API_KEY")
 
@@ -73,7 +74,7 @@ def api(any_path=None):
                 except requests.RequestException as e:
                     return jsonify({"error": f"Error forwarding request: {str(e)}"}), 500
             else:
-                return jsonify({"error": "TARGET_BASE_URL is not set"}), 500
+                return jsonify({"error": f"Unable to forward request to actual API because {engine}_BASE_URL is not found in environment variables"}), 500
         except Exception as e:
             return jsonify({"error": f"No matching data found in test_data.json. Tried to forward request to actual API but: {e}"}), 404
 
