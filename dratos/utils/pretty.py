@@ -1,8 +1,11 @@
+from typing import Dict, List, TYPE_CHECKING
+
+# Only import Agent for type checking
+if TYPE_CHECKING:
+    from dratos.core.agent import Agent
+
 import tiktoken
 import json
-from typing import List, Dict
-
-from dratos.utils.utils import extract_json_from_str
 
 from rich import print as rprint
 from rich.syntax import Syntax
@@ -13,7 +16,9 @@ from rich.text import Text
 from rich.live import Live
 from rich.console import Console, Group
 
-def pretty(agent, message: str, title: str):
+from dratos.utils.utils import extract_json_from_str
+
+def pretty(agent: "Agent", message: str, title: str):
     if not agent.verbose:
         return
     if title == "Response":
@@ -55,7 +60,7 @@ def pretty(agent, message: str, title: str):
                 style=Style(color=color)
                 ))
 
-async def pretty_stream(agent, prompt: str, messages: List[Dict], completion_setting: Dict):
+async def pretty_stream(agent: "Agent", messages: List[Dict], completion_setting: Dict):
     console = Console()
     try:
         tokenizer = tiktoken.encoding_for_model(agent.llm.model_name)
@@ -65,8 +70,8 @@ async def pretty_stream(agent, prompt: str, messages: List[Dict], completion_set
     async def stream():
         response = ""
         tokens = 0
-        async for chunk in agent.llm.async_gen(prompt,
-                                messages=agent.messages, 
+        async for chunk in agent.llm.async_gen(
+                                messages=messages, 
                                 **completion_setting):
             response += chunk
             tokens += len(tokenizer.encode(chunk))

@@ -42,7 +42,7 @@ class OpenAIEngine(BaseEngine):
         model_name: str = "gpt-4o",
         response_model: BaseModel | None = None,
         tools: List[Dict] = None,
-        messages: List[Dict[str, str]] = None,
+        messages: List[Dict] = None,
         **kwargs,
     ):
         """
@@ -99,20 +99,15 @@ class OpenAIEngine(BaseEngine):
 
     async def async_gen(
         self,
-        prompt: dict, 
         model_name: str = "gpt-4",
-        messages: List[Dict[str, str]] = None,
+        messages: List[Dict] = None,
         **kwargs,
     ) -> AsyncIterator[str]:
+        
         if not self.client:
             await self.initialize()
 
-        if messages is None:
-            messages = [{"role": "user", "content": prompt}]
-        elif isinstance(messages, str):
-            messages = [{"role": "user", "content": messages}]
-        else: 
-            messages.append(prompt) # tools result are already formatted
+        messages = self.format_messages(messages)
 
         stream = await self.client.chat.completions.create(
             model=model_name,

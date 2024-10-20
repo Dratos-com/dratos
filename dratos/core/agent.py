@@ -4,18 +4,7 @@ from dratos.models.types.LLM import LLM
 from pydantic import BaseModel
 
 from dratos.utils.utils import tool_definition, pydantic_to_openai_schema, extract_json_from_str
-
-from rich import print as rprint
-from rich.syntax import Syntax
-from rich.panel import Panel
-from rich.markdown import Markdown
-from rich.style import Style
-from rich.text import Text
-from rich.live import Live
-from rich.console import Console, Group
-
-
-import tiktoken
+from dratos.utils.pretty import pretty, pretty_stream
 
 import logging
 from rich.logging import RichHandler
@@ -78,86 +67,10 @@ class Agent:
             if response_model is None:
                 raise ValueError("A response can only be validated if a `response_model` is provided.")
 
-    def pretty(self, message: str, title: str):
-        if not self.verbose:
-            return
-        if title == "Response":
-            color = "green"
-        elif title == "Prompt":
-            color = "blue"
-        elif title == "System prompt":
-            color = "bright_black"
-        else:
-            color = "dark_orange3"
-
-        try:
-            tokenizer = tiktoken.encoding_for_model(self.llm.model_name)
-            tokens = len(tokenizer.encode(str(message)))
-
-        except KeyError:
-            tokenizer = tiktoken.encoding_for_model("gpt-4o")
-        
-        title = f"{title} ({tokens} tokens)"
-
-        if self.markdown_response:
-            content = Markdown(str(message))
-        else:
-            try:
-                json_data, start, end = extract_json_from_str(message)
-                json_string = json.dumps(json_data, indent=4)
-                json_content = Syntax(json_string, "json", theme="monokai", line_numbers=False)
-                content = Group(
-                Text(start),
-                json_content,
-                    Text(end)
-                )
-            except Exception as e:
-                content = str(message)
-
-        rprint(Panel(content, 
-                    title=title, 
-                    title_align="left", 
-                    style=Style(color=color)
-                    ))
-
-    async def pretty_stream(self, prompt: str, messages: List[Dict], completion_setting: Dict):
-        console = Console()
-        try:
-            tokenizer = tiktoken.encoding_for_model(self.llm.model_name)
-        except KeyError:
-            tokenizer = tiktoken.encoding_for_model("gpt-4o")
-        
-        async def stream():
-            response = ""
-            tokens = 0
-            async for chunk in self.llm.async_gen(prompt,
-                                    messages=self.messages, 
-                                    **completion_setting):
-                response += chunk
-                tokens += len(tokenizer.encode(chunk))
-                yield chunk, tokens, response
-        
-        if self.verbose:
-            with Live(console=console, refresh_per_second=4) as live:
-                async for chunk, tokens, response in stream():
-                    live.update(
-                            Panel(
-                            Markdown(str(response)) if self.markdown_response else str(response),
-                            title=f"Response ({tokens} tokens)",
-                            title_align="left",
-                            style=Style(color="green"),
-                            expand=False
-                        )
-                    )
-                    yield chunk
-        else:
-            async for chunk, _, _ in stream():
-                yield chunk
-
     def append_message(self, message: str, role: str, **kwargs):
         return self.messages.append({"role": role, "content": message, "context": kwargs})
     
-    def record_message(self, message: str, role: str, **kwargs):
+    def record_message(self, message: str, role: str, print: bool = True, **kwargs):
         if role == "System prompt":
             content = message
         elif role == "Prompt":
@@ -174,7 +87,7 @@ class Agent:
             raise ValueError(f"Unknown message role: {role}")
         
         self.append_message(content, role, **kwargs)
-        self.pretty(content, role)
+        pretty(self, content, role) if print else None
 
     def pydantic_validation(self, response:str)-> Type[BaseModel]:
         """Validates the response using Pydantic."""
@@ -206,7 +119,7 @@ class Agent:
             response = await self.llm.sync_gen(
                 response_model=self.response_model,
                 tools=tools,
-                messages=self.messages[:-1] if self.history else self.messages,
+                messages=self.messages[:-1] if self.history else [self.messages[-1]],
                 **completion_setting)
 
             # Tool calling
@@ -242,22 +155,20 @@ class Agent:
             raise ValueError("Prompt must be a string")
         if self.tools or self.response_model:
             raise ValueError("Cannot use 'tools' and 'response_model' with async_gen, use sync_gen instead.")
-        if kwargs:
-            completion_setting = kwargs
-        else:
-            completion_setting = self.completion_setting
+        
+        completion_setting = kwargs if kwargs else self.completion_setting
 
         self.record_message(prompt, role="Prompt")
         
         # Generation
         response = ""
-        async for chunk in self.pretty_stream(prompt,
-                                            messages=self.messages[:-1] if self.history else [], 
-                                            completion_setting=completion_setting):
+        async for chunk in pretty_stream(self,
+                                         messages=self.messages[:-1] if self.history else [self.messages[-1]], 
+                                         completion_setting=completion_setting):
             response += chunk
             yield chunk
 
-        self.record_message(response, role="Response")
+        self.record_message(response, role="Response", print=False)
     
     def pydantic_schema_description(self):
         response_model = pydantic_to_openai_schema(self.response_model)

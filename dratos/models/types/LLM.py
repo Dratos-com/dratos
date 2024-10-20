@@ -51,13 +51,12 @@ class LLM():
         return await self.engine.sync_gen(self.model_name, response_model, tools, messages, **kwargs)
 
     async def async_gen(self, 
-                     prompt: dict, 
                      messages: List[Dict[str, str]] = None,
                      **kwargs
                      ) -> AsyncIterator[str]:
         if not self.is_initialized:
             await self.initialize()
-        async for chunk in self.engine.async_gen(prompt, self.model_name, messages, **kwargs):
+        async for chunk in self.engine.async_gen(self.model_name, messages, **kwargs):
             yield chunk
 
     @property
