@@ -39,7 +39,6 @@ class OpenAIEngine(BaseEngine):
 
     async def sync_gen(
         self,
-        #prompt: dict, 
         model_name: str = "gpt-4o",
         response_model: BaseModel | None = None,
         tools: List[Dict] = None,
@@ -51,13 +50,6 @@ class OpenAIEngine(BaseEngine):
         """
         if not self.client:
             await self.initialize()
-
-        # if messages is None:
-        #     messages = [{"role": "user", "content": prompt}]
-        # elif isinstance(prompt, str):
-        #     messages = [{"role": "user", "content": prompt}]
-        # else:
-        #     messages.append(prompt) # tools result are already formatted
 
         messages = self.format_messages(messages)
 
@@ -193,8 +185,6 @@ class OpenAIEngine(BaseEngine):
                     }
                 ]
                 formatted_messages.append({"role": "assistant", "tool_calls": content})
-            elif message["role"] == "Tool results":
-                formatted_messages.append(self.tool_result(message["content"], message["context"]["arguments"], message["context"]["id"]))
             else:
                 raise ValueError(f"Unknown message role: {message['role']}")
         return formatted_messages

@@ -1,11 +1,9 @@
-from typing import List, Dict, Type, Any
+from typing import List, Dict, Type
 import json
 from dratos.models.types.LLM import LLM
 from pydantic import BaseModel
 
 from dratos.utils.utils import tool_definition, pydantic_to_openai_schema, extract_json_from_str
-
-from dratos.models.providers.openai_engine import OpenAIEngine
 
 from rich import print as rprint
 from rich.syntax import Syntax
@@ -47,10 +45,9 @@ class Agent:
             verbose: bool = False,
             history: bool = False,
             tools: List[Dict] = None,
-            # pass_results_to_llm: bool = False, # only with tools
             markdown_response: bool = False,
             response_model: BaseModel = None,
-            response_validation: bool = False, # only with reponse_format
+            response_validation: bool = False, # only with reponse_model
             completion_setting: Dict = {},
         ):
         self.name = name
@@ -58,7 +55,6 @@ class Agent:
         self.completion_setting = completion_setting
         self.history = history
         self.tools = tools
-        # self.pass_results_to_llm = pass_results_to_llm
         self.response_model = response_model
         self.response_validation = response_validation
         self.markdown_response = markdown_response
@@ -77,10 +73,6 @@ class Agent:
 
         if tools is not None and response_model is not None:
             raise ValueError("Cannot use both 'tools' and 'response_model'.")
-        
-        # if pass_results_to_llm:
-        #     if tools is None:
-        #         raise ValueError("'pass_results_to_llm' requires 'tools'.")
         
         if response_validation:
             if response_model is None:
@@ -172,8 +164,6 @@ class Agent:
             content = message
         elif role == "Response":
             content = message
-        elif role == "Tool results":
-            content = message
         elif role == "Tool call":
             content = {
                 "name": message["name"],
@@ -214,7 +204,6 @@ class Agent:
 
             # Generation
             response = await self.llm.sync_gen(
-                #prompt=prompt,
                 response_model=self.response_model,
                 tools=tools,
                 messages=self.messages[:-1] if self.history else self.messages,
@@ -222,7 +211,6 @@ class Agent:
 
             # Tool calling
             if self.tools and not isinstance(response, str):
-                # complete_response = str()
                 complete_result = dict()
                 for tool_call in response:
                     self.record_message(tool_call, role="Tool call")
@@ -231,19 +219,6 @@ class Agent:
                             result = tool(**tool_call["arguments"])
                             complete_result.update({tool_call["name"]: result})
                 return complete_result
-                            # if self.pass_results_to_llm:
-                            #     self.record_message(result, role="Tool results", **tool_call)
-                            #     res = await self.llm.sync_gen(
-                            #         #prompt=result,
-                            #         response_model=None,
-                            #         tools=None,
-                            #         messages=self.messages[:-1] if self.history else self.messages,
-                            #         **completion_setting)
-                            #     complete_response += res if len(response) == 0 else f"\n{res}"
-                            #     self.record_message(res, role="Response")
-                            # else:
-                            #     return complete_result
-                
             else:
                 self.record_message(response, role="Response")
 
