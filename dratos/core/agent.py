@@ -47,7 +47,7 @@ class Agent:
             verbose: bool = False,
             history: bool = False,
             tools: List[Dict] = None,
-            pass_results_to_llm: bool = False, # only with tools
+            # pass_results_to_llm: bool = False, # only with tools
             markdown_response: bool = False,
             response_model: BaseModel = None,
             response_validation: bool = False, # only with reponse_format
@@ -58,7 +58,7 @@ class Agent:
         self.completion_setting = completion_setting
         self.history = history
         self.tools = tools
-        self.pass_results_to_llm = pass_results_to_llm
+        # self.pass_results_to_llm = pass_results_to_llm
         self.response_model = response_model
         self.response_validation = response_validation
         self.markdown_response = markdown_response
@@ -78,9 +78,9 @@ class Agent:
         if tools is not None and response_model is not None:
             raise ValueError("Cannot use both 'tools' and 'response_model'.")
         
-        if pass_results_to_llm:
-            if tools is None:
-                raise ValueError("'pass_results_to_llm' requires 'tools'.")
+        # if pass_results_to_llm:
+        #     if tools is None:
+        #         raise ValueError("'pass_results_to_llm' requires 'tools'.")
         
         if response_validation:
             if response_model is None:
@@ -175,14 +175,11 @@ class Agent:
         elif role == "Tool results":
             content = message
         elif role == "Tool call":
-            for tool_call in message:
-                content = {
-                    "name": tool_call["name"],
-                    "arguments": f'{tool_call["arguments"]}'
-                } 
-                kwargs.update({k: v for k, v in tool_call.items() if k not in ["name", "arguments"]})
-                self.append_message(content, role, **kwargs)
-                return
+            content = {
+                "name": message["name"],
+                "arguments": f'{message["arguments"]}'
+            } 
+            kwargs.update({k: v for k, v in message.items() if k not in ["name", "arguments"]})
         else:
             raise ValueError(f"Unknown message role: {role}")
         
@@ -220,27 +217,33 @@ class Agent:
                 #prompt=prompt,
                 response_model=self.response_model,
                 tools=tools,
-                messages=self.messages[:-1] if self.history else [self.messages[-1]],
+                messages=self.messages[:-1] if self.history else self.messages,
                 **completion_setting)
 
             # Tool calling
             if self.tools and not isinstance(response, str):
-                self.record_message(response, role="Tool call")
+                # complete_response = str()
+                complete_result = dict()
                 for tool_call in response:
+                    self.record_message(tool_call, role="Tool call")
                     for tool in self.tools:
                         if tool.__name__ == tool_call["name"]:
                             result = tool(**tool_call["arguments"])
-                            if self.pass_results_to_llm:
-                                self.record_message(result, role="Tool results", **tool_call)
-                                response = await self.llm.sync_gen(
-                                    #prompt=result,
-                                    response_model=None,
-                                    tools=None,
-                                    messages=self.messages[:-1] if self.history else self.messages[-2:],
-                                    **completion_setting)
-                                self.record_message(response, role="Response")
-                            else:
-                                return result
+                            complete_result.update({tool_call["name"]: result})
+                return complete_result
+                            # if self.pass_results_to_llm:
+                            #     self.record_message(result, role="Tool results", **tool_call)
+                            #     res = await self.llm.sync_gen(
+                            #         #prompt=result,
+                            #         response_model=None,
+                            #         tools=None,
+                            #         messages=self.messages[:-1] if self.history else self.messages,
+                            #         **completion_setting)
+                            #     complete_response += res if len(response) == 0 else f"\n{res}"
+                            #     self.record_message(res, role="Response")
+                            # else:
+                            #     return complete_result
+                
             else:
                 self.record_message(response, role="Response")
 

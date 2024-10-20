@@ -28,7 +28,7 @@ def tool(prompt):
     Generate a text completion for a given prompt.
 
     >>> tool("What is 2 + 2?")
-    4
+    {'add': 4}
     """
     llm = LLM(
         model_name="gpt-4o", 
@@ -49,12 +49,13 @@ def tool(prompt):
 
 #print(tool("What is 2 + 2?"))
 
-def pass_results_to_llm(prompt):
-    """
-    Generate a text completion for a given prompt.
 
-    >>> pass_results_to_llm("What is 2 + 2?")
-    'The sum of 2 and 2 is 4.'
+def use_multiple_tools(prompt):
+    """
+    Generate a text completion for a given prompt using multiple tools.
+
+    >>> use_multiple_tools("What is 2 + 2 and 3 * 3?")
+    {'add': 4, 'multiply': 9}
     """
     llm = LLM(
         model_name="gpt-4o", 
@@ -64,14 +65,16 @@ def pass_results_to_llm(prompt):
     def add(arg1: int, arg2: int) -> int:
         return arg1 + arg2
 
+    def multiply(arg1: int, arg2: int) -> int:
+        return arg1 * arg2
+
     agent = Agent(
         name="agent",
         llm=llm,
         #verbose=True,
-        tools=[add],
-        pass_results_to_llm=True,
+        tools=[add, multiply],
     )
 
     return agent.sync_gen(prompt)
 
-#print(pass_results_to_llm("What is 2 + 2?"))
+#print(use_multiple_tools("What is 2 + 2 and 3 * 3?"))

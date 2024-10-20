@@ -19,7 +19,6 @@ def get_current_engine():
     try:
         with open(shared_file, 'r') as f:
             data = json.load(f)
-        os.remove(shared_file)
         return data.get("ENGINE")
     except FileNotFoundError:
         return None

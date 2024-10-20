@@ -309,5 +309,159 @@
       "param": "messages[0].tool_calls[0]",
       "code": "invalid_type"
     }
+  },
+  "{\"messages\": [{\"content\": \"What is 2 + 2 and 3 * 3?\", \"role\": \"user\"}], \"model\": \"gpt-4o\", \"path\": \"chat/completions\", \"tool_choice\": \"auto\", \"tools\": [{\"function\": {\"description\": \"add definition.\", \"name\": \"add\", \"parameters\": {\"additionalProperties\": false, \"properties\": {\"arg1\": {\"description\": \"arg1 parameter.\", \"type\": \"integer\"}, \"arg2\": {\"description\": \"arg2 parameter.\", \"type\": \"integer\"}}, \"required\": [\"arg1\", \"arg2\"], \"type\": \"object\"}}, \"type\": \"function\"}, {\"function\": {\"description\": \"multiply definition.\", \"name\": \"multiply\", \"parameters\": {\"additionalProperties\": false, \"properties\": {\"arg1\": {\"description\": \"arg1 parameter.\", \"type\": \"integer\"}, \"arg2\": {\"description\": \"arg2 parameter.\", \"type\": \"integer\"}}, \"required\": [\"arg1\", \"arg2\"], \"type\": \"object\"}}, \"type\": \"function\"}]}": {
+    "id": "chatcmpl-AKQyXQrAgSGOqUszc7oo6FIEjzTDZ",
+    "object": "chat.completion",
+    "created": 1729433617,
+    "model": "gpt-4o-2024-08-06",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": null,
+          "tool_calls": [
+            {
+              "id": "call_HXGiDhlie41nb5h2kk6g8MIF",
+              "type": "function",
+              "function": {
+                "name": "add",
+                "arguments": "{\"arg1\": 2, \"arg2\": 2}"
+              }
+            },
+            {
+              "id": "call_BZltb7nN38EzQ7GnoKz819O3",
+              "type": "function",
+              "function": {
+                "name": "multiply",
+                "arguments": "{\"arg1\": 3, \"arg2\": 3}"
+              }
+            }
+          ],
+          "refusal": null
+        },
+        "logprobs": null,
+        "finish_reason": "tool_calls"
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 99,
+      "completion_tokens": 54,
+      "total_tokens": 153,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "completion_tokens_details": {
+        "reasoning_tokens": 0
+      }
+    },
+    "system_fingerprint": "fp_45c6de4934"
+  },
+  "{\"messages\": [{\"role\": \"assistant\", \"tool_calls\": [{\"function\": {\"arguments\": \"{'arg1': 2, 'arg2': 2}\", \"name\": \"add\"}, \"id\": \"call_HXGiDhlie41nb5h2kk6g8MIF\", \"type\": \"function\"}]}, {\"content\": \"{'arg1': 2, 'arg2': 2, 'result': 4}\", \"role\": \"tool\", \"tool_call_id\": \"call_HXGiDhlie41nb5h2kk6g8MIF\"}], \"model\": \"gpt-4o\", \"path\": \"chat/completions\"}": {
+    "id": "chatcmpl-AKR0vU0o8pZHywRo0hiffa6LzC5at",
+    "object": "chat.completion",
+    "created": 1729433765,
+    "model": "gpt-4o-2024-08-06",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "The result of adding 2 and 2 is 4.",
+          "refusal": null
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 52,
+      "completion_tokens": 13,
+      "total_tokens": 65,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "completion_tokens_details": {
+        "reasoning_tokens": 0
+      }
+    },
+    "system_fingerprint": "fp_a7d06e42a7"
+  },
+  "{\"messages\": [{\"content\": \"The result of adding 2 and 2 is 4.\", \"role\": \"assistant\"}, {\"content\": \"{'arg1': 3, 'arg2': 3, 'result': 9}\", \"role\": \"tool\", \"tool_call_id\": \"call_BZltb7nN38EzQ7GnoKz819O3\"}], \"model\": \"gpt-4o\", \"path\": \"chat/completions\"}": {
+    "error": {
+      "message": "Invalid parameter: messages with role 'tool' must be a response to a preceeding message with 'tool_calls'.",
+      "type": "invalid_request_error",
+      "param": "messages.[1].role",
+      "code": null
+    }
+  },
+  "{\"messages\": [{\"content\": \"What is 2 + 2 and 3 * 3?\", \"role\": \"user\"}, {\"role\": \"assistant\", \"tool_calls\": [{\"function\": {\"arguments\": \"{'arg1': 2, 'arg2': 2}\", \"name\": \"add\"}, \"id\": \"call_HXGiDhlie41nb5h2kk6g8MIF\", \"type\": \"function\"}]}, {\"content\": \"{'arg1': 2, 'arg2': 2, 'result': 4}\", \"role\": \"tool\", \"tool_call_id\": \"call_HXGiDhlie41nb5h2kk6g8MIF\"}], \"model\": \"gpt-4o\", \"path\": \"chat/completions\"}": {
+    "id": "chatcmpl-AKRKnUqnsym1LaEk5jXQx6dJZM9hX",
+    "object": "chat.completion",
+    "created": 1729434997,
+    "model": "gpt-4o-2024-08-06",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "2 + 2 is 4. \n\nNow, let's calculate 3 * 3.\n\n3 * 3 is 9.",
+          "refusal": null
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 70,
+      "completion_tokens": 27,
+      "total_tokens": 97,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "completion_tokens_details": {
+        "reasoning_tokens": 0
+      }
+    },
+    "system_fingerprint": "fp_a7d06e42a7"
+  },
+  "{\"messages\": [{\"content\": \"What is 2 + 2 and 3 * 3?\", \"role\": \"user\"}, {\"role\": \"assistant\", \"tool_calls\": [{\"function\": {\"arguments\": \"{'arg1': 2, 'arg2': 2}\", \"name\": \"add\"}, \"id\": \"call_HXGiDhlie41nb5h2kk6g8MIF\", \"type\": \"function\"}]}, {\"content\": \"{'arg1': 2, 'arg2': 2, 'result': 4}\", \"role\": \"tool\", \"tool_call_id\": \"call_HXGiDhlie41nb5h2kk6g8MIF\"}, {\"content\": \"2 + 2 is 4. \\n\\nNow, let's calculate 3 * 3.\\n\\n3 * 3 is 9.\", \"role\": \"assistant\"}, {\"content\": \"{'arg1': 3, 'arg2': 3, 'result': 9}\", \"role\": \"tool\", \"tool_call_id\": \"call_BZltb7nN38EzQ7GnoKz819O3\"}], \"model\": \"gpt-4o\", \"path\": \"chat/completions\"}": {
+    "error": {
+      "message": "Invalid parameter: messages with role 'tool' must be a response to a preceeding message with 'tool_calls'.",
+      "type": "invalid_request_error",
+      "param": "messages.[4].role",
+      "code": null
+    }
+  },
+  "{\"messages\": [{\"content\": \"What is 2 + 2 and 3 * 3?\", \"role\": \"user\"}, {\"role\": \"assistant\", \"tool_calls\": [{\"function\": {\"arguments\": \"{'arg1': 2, 'arg2': 2}\", \"name\": \"add\"}, \"id\": \"call_HXGiDhlie41nb5h2kk6g8MIF\", \"type\": \"function\"}]}, {\"content\": \"{'arg1': 2, 'arg2': 2, 'result': 4}\", \"role\": \"tool\", \"tool_call_id\": \"call_HXGiDhlie41nb5h2kk6g8MIF\"}, {\"content\": \"2 + 2 is 4. \\n\\nNow, let's calculate 3 * 3.\\n\\n3 * 3 is 9.\", \"role\": \"assistant\"}, {\"role\": \"assistant\", \"tool_calls\": [{\"function\": {\"arguments\": \"{'arg1': 3, 'arg2': 3}\", \"name\": \"multiply\"}, \"id\": \"call_BZltb7nN38EzQ7GnoKz819O3\", \"type\": \"function\"}]}, {\"content\": \"{'arg1': 3, 'arg2': 3, 'result': 9}\", \"role\": \"tool\", \"tool_call_id\": \"call_BZltb7nN38EzQ7GnoKz819O3\"}], \"model\": \"gpt-4o\", \"path\": \"chat/completions\"}": {
+    "id": "chatcmpl-AKRTY3YdRU795RfPACVyMQCfbjXLu",
+    "object": "chat.completion",
+    "created": 1729435540,
+    "model": "gpt-4o-2024-08-06",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "3 * 3 is 9.",
+          "refusal": null
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 150,
+      "completion_tokens": 8,
+      "total_tokens": 158,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "completion_tokens_details": {
+        "reasoning_tokens": 0
+      }
+    },
+    "system_fingerprint": "fp_a7d06e42a7"
   }
 }
