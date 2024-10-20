@@ -6,7 +6,7 @@ from abc import abstractmethod
 
 from typing import Dict, List, AsyncIterator
 from dratos.models.providers.base_engine import BaseEngine
-
+from dratos.models.providers.openai_engine import OpenAIEngine
 
 
 class LLM():
@@ -17,10 +17,18 @@ class LLM():
     ):
         self.model_name = model_name
         self.engine = engine
-        if self.model_name.startswith("gpt-4o-"):
-            self.support_pydantic = True
+
+        # LLM supports tools
+        if self.engine == OpenAIEngine:
+            self.support_tools = True
         else:
-            self.support_pydantic = False
+            self.support_tools = False
+
+        # LLM supports structured generation
+        if self.model_name.startswith("gpt-4o-"):
+            self.support_structured_output = True
+        else:
+            self.support_structured_output = False
 
     async def initialize(self):
         self.engine.initialize()
@@ -30,7 +38,7 @@ class LLM():
 
     @abstractmethod
     async def sync_gen(self, 
-                       prompt: dict, 
+                       # prompt: dict, 
                        response_model: str | Dict | None = None,
                        tools: List[Dict] = None,
                        messages: List[Dict[str, str]] = None,
@@ -40,7 +48,7 @@ class LLM():
             raise ValueError("Cannot use both 'tools' and 'response_model' simultaneously.")
         if not self.is_initialized:
             await self.initialize()
-        return await self.engine.sync_gen(prompt, self.model_name, response_model, tools, messages, **kwargs)
+        return await self.engine.sync_gen(self.model_name, response_model, tools, messages, **kwargs)
 
     async def async_gen(self, 
                      prompt: dict, 

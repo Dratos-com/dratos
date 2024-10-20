@@ -285,5 +285,29 @@
       }
     },
     "system_fingerprint": "fp_a7d06e42a7"
+  },
+  "{\"messages\": [{\"Tool call\": [{\"function\": {\"arguments\": \"{'arg1': 2, 'arg2': 2}\", \"name\": \"add\"}, \"id\": \"call_IGMNPiJXFqOoPWlvPCNszDJG\", \"type\": \"function\"}], \"role\": \"Tool call\"}, 4], \"model\": \"gpt-4o\", \"path\": \"chat/completions\"}": {
+    "error": {
+      "message": "Invalid value: 'Tool call'. Supported values are: 'system', 'assistant', 'user', 'function', and 'tool'.",
+      "type": "invalid_request_error",
+      "param": "messages[0].role",
+      "code": "invalid_value"
+    }
+  },
+  "{\"messages\": [{\"role\": \"assistant\", \"tool_calls\": [\"role\", \"content\"]}, {\"content\": \"{'arg1': 2, 'arg2': 2, 'result': 4}\", \"role\": \"tool\", \"tool_call_id\": \"call_IGMNPiJXFqOoPWlvPCNszDJG\"}], \"model\": \"gpt-4o\", \"path\": \"chat/completions\"}": {
+    "error": {
+      "message": "Invalid type for 'messages[0].tool_calls[0]': expected an object, but got a string instead.",
+      "type": "invalid_request_error",
+      "param": "messages[0].tool_calls[0]",
+      "code": "invalid_type"
+    }
+  },
+  "{\"messages\": [{\"role\": \"assistant\", \"tool_calls\": [\"type\", \"id\", \"function\"]}, {\"content\": \"{'arg1': 2, 'arg2': 2, 'result': 4}\", \"role\": \"tool\", \"tool_call_id\": \"call_IGMNPiJXFqOoPWlvPCNszDJG\"}], \"model\": \"gpt-4o\", \"path\": \"chat/completions\"}": {
+    "error": {
+      "message": "Invalid type for 'messages[0].tool_calls[0]': expected an object, but got a string instead.",
+      "type": "invalid_request_error",
+      "param": "messages[0].tool_calls[0]",
+      "code": "invalid_type"
+    }
   }
 }

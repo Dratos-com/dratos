@@ -48,17 +48,6 @@ def tool_definition(tool: Callable) -> Dict:
         }
     }
 
-def tool_result( args: Dict, result: Any, id: str) -> Dict:
-    content =  {
-        **{k:v for k,v in args.items()}, 
-        **{"result": result}
-    }
-    return {
-        "role": "tool",
-        "content": content.__str__(),
-        "tool_call_id": id
-    }
-
 def extract_json_from_str(response: str):
     """
     Extracts a JSON object from a string.

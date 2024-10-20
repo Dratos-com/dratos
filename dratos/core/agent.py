@@ -3,7 +3,7 @@ import json
 from dratos.models.types.LLM import LLM
 from pydantic import BaseModel
 
-from dratos.utils import tool_result, tool_definition, pydantic_to_openai_schema, extract_json_from_str
+from dratos.utils.utils import tool_definition, pydantic_to_openai_schema, extract_json_from_str
 
 from dratos.models.providers.openai_engine import OpenAIEngine
 
@@ -68,7 +68,7 @@ class Agent:
 
         self.messages = []
 
-        if self.response_model and not self.llm.support_pydantic:
+        if self.response_model and not self.llm.support_structured_output:
             self.messages.append({"role": "system", "content": 
                                     f"{system_prompt if system_prompt else ''}\
                                     \n{self.pydantic_schema_description()}"})
@@ -162,35 +162,32 @@ class Agent:
             async for chunk, _, _ in stream():
                 yield chunk
 
-    def append_message(self, message: str, role: str):
-        return self.messages.append({"role": role, "content": message})
+    def append_message(self, message: str, role: str, **kwargs):
+        return self.messages.append({"role": role, "content": message, "context": kwargs})
     
-    def record_message(self, message: str, role: str):
-        if role == "user":
-            title = "Prompt"
-            self.append_message(message, "user")
-        elif role == "tool_result":
-            title = "Tool results"
-            self.append_message(message, "user")
-        elif role == "system":
-            title = "System prompt"
-            self.append_message(message, "system")
-        elif role == "tool_call":
-            title = "Tool call"
-            self.messages.append({"role": "assistant", "tool_calls": [
-                               { 
-                        "type": "function",
-                        "id": message["id"],
-                        "function": {
-                            "name": message["name"],
-                            "arguments": f'{message["arguments"]}'
-                        }
-                }]})
+    def record_message(self, message: str, role: str, **kwargs):
+        if role == "System prompt":
+            content = message
+        elif role == "Prompt":
+            content = message
+        elif role == "Response":
+            content = message
+        elif role == "Tool results":
+            content = message
+        elif role == "Tool call":
+            for tool_call in message:
+                content = {
+                    "name": tool_call["name"],
+                    "arguments": f'{tool_call["arguments"]}'
+                } 
+                kwargs.update({k: v for k, v in tool_call.items() if k not in ["name", "arguments"]})
+                self.append_message(content, role, **kwargs)
+                return
         else:
-            title = "Response"
-            self.append_message(message, "assistant")
+            raise ValueError(f"Unknown message role: {role}")
         
-        self.pretty(message, title)
+        self.append_message(content, role, **kwargs)
+        self.pretty(content, role)
 
     def pydantic_validation(self, response:str)-> Type[BaseModel]:
         """Validates the response using Pydantic."""
@@ -212,7 +209,7 @@ class Agent:
             if not isinstance(prompt, str):
                 raise ValueError("Prompt must be a string")
 
-            self.record_message(prompt, role="user")
+            self.record_message(prompt, role="Prompt")
             self.log_agent_info()
 
             completion_setting = kwargs if kwargs else self.completion_setting
@@ -220,32 +217,32 @@ class Agent:
 
             # Generation
             response = await self.llm.sync_gen(
-                prompt=prompt,
+                #prompt=prompt,
                 response_model=self.response_model,
                 tools=tools,
-                messages=self.messages[:-1] if self.history else [],
+                messages=self.messages[:-1] if self.history else [self.messages[-1]],
                 **completion_setting)
 
             # Tool calling
             if self.tools and not isinstance(response, str):
-                self.record_message(response, role="tool_call")
-                for tool in self.tools:
-                    if tool.__name__ == response["name"]:
-                        result = tool(**response["arguments"])
-                        if self.pass_results_to_llm:
-                            result = tool_result(response["arguments"], result, id=response["id"])
-                            self.record_message(result, role="tool_result")
-                            response = await self.llm.sync_gen(
-                                prompt=result,
-                                response_model=None,
-                                tools=None,
-                                messages=self.messages[:-1] if self.history else self.messages[-2:-1],
-                                **completion_setting)
-                            self.record_message(response, role="assistant")
-                        else:
-                            return result
+                self.record_message(response, role="Tool call")
+                for tool_call in response:
+                    for tool in self.tools:
+                        if tool.__name__ == tool_call["name"]:
+                            result = tool(**tool_call["arguments"])
+                            if self.pass_results_to_llm:
+                                self.record_message(result, role="Tool results", **tool_call)
+                                response = await self.llm.sync_gen(
+                                    #prompt=result,
+                                    response_model=None,
+                                    tools=None,
+                                    messages=self.messages[:-1] if self.history else self.messages[-2:],
+                                    **completion_setting)
+                                self.record_message(response, role="Response")
+                            else:
+                                return result
             else:
-                self.record_message(response, role="assistant")
+                self.record_message(response, role="Response")
 
             # Validation
             if self.response_validation:
@@ -272,7 +269,7 @@ class Agent:
         else:
             completion_setting = self.completion_setting
 
-        self.record_message(prompt, role="user")
+        self.record_message(prompt, role="Prompt")
         
         # Generation
         response = ""
@@ -282,9 +279,7 @@ class Agent:
             response += chunk
             yield chunk
 
-        if self.history:
-            self.messages.append(prompt)
-            self.add_response_to_messages(response)
+        self.record_message(response, role="Response")
     
     def pydantic_schema_description(self):
         response_model = pydantic_to_openai_schema(self.response_model)
@@ -298,9 +293,3 @@ class Agent:
         response_model_name = self.response_model.__name__ if self.response_model else None
         logger.info(f"Tools: {tools_list}")
         logger.info(f"Response Model: {response_model_name}")
-
-    def tool_result_formatting(self, arguments: Dict, result: Any, id: str):
-        if isinstance(self.llm.engine, OpenAIEngine):
-            return tool_result(arguments, result, id)
-        else: # to adapt for other engines
-            return tool_result(arguments, result, id)

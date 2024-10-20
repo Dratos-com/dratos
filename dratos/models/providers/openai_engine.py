@@ -3,9 +3,8 @@ This module provides an OpenAI engine for generating text using the OpenAI API.
 """
 import os
 import json
-import logging
 import inspect
-from typing import Dict, List, AsyncIterator
+from typing import Dict, List, AsyncIterator, Any
 
 from openai import AsyncOpenAI, OpenAI
 from pydantic import BaseModel
@@ -40,7 +39,7 @@ class OpenAIEngine(BaseEngine):
 
     async def sync_gen(
         self,
-        prompt: dict, 
+        #prompt: dict, 
         model_name: str = "gpt-4o",
         response_model: BaseModel | None = None,
         tools: List[Dict] = None,
@@ -53,12 +52,14 @@ class OpenAIEngine(BaseEngine):
         if not self.client:
             await self.initialize()
 
-        if messages is None:
-            messages = [{"role": "user", "content": prompt}]
-        elif isinstance(prompt, str):
-            messages = [{"role": "user", "content": prompt}]
-        else:
-            messages.append(prompt) # tools result are already formatted
+        # if messages is None:
+        #     messages = [{"role": "user", "content": prompt}]
+        # elif isinstance(prompt, str):
+        #     messages = [{"role": "user", "content": prompt}]
+        # else:
+        #     messages.append(prompt) # tools result are already formatted
+
+        messages = self.format_messages(messages)
 
         if response_model is not None:
             if model_name.startswith("gpt-4o-"):
@@ -94,11 +95,14 @@ class OpenAIEngine(BaseEngine):
             result = response.choices[0].message.content
             return result
         else:
-            result = {
-                "name": response.choices[0].message.tool_calls[0].function.name,
-                "arguments": json.loads(response.choices[0].message.tool_calls[0].function.arguments),
-                "id": response.choices[0].message.tool_calls[0].id
-            }
+            result = [
+                {
+                    "name": tool_call.function.name,
+                    "arguments": json.loads(tool_call.function.arguments),
+                    "id": tool_call.id
+                }
+                for tool_call in response.choices[0].message.tool_calls
+            ]
             return result
 
     async def async_gen(
@@ -156,3 +160,41 @@ class OpenAIEngine(BaseEngine):
             )
         completion_args = inspect.signature(self.client.chat.completions.create).parameters.keys()
         return list(completion_args)
+
+    def tool_result(self, result: Any, args: Dict, id: str) -> Dict: 
+        content =  {
+            **{k:v for k,v in args.items()}, 
+            **{"result": result}
+        }
+        return {
+            "role": "tool",
+            "content": content.__str__(),
+            "tool_call_id": id
+        }
+    
+    def format_messages(self, messages: List[Dict]) -> List[Dict[str, str]]:
+        formatted_messages = []
+        for message in messages:
+            if message["role"] == "System prompt":
+                formatted_messages.append({"role": "system", "content": message["content"]})
+            elif message["role"] == "Prompt":
+                formatted_messages.append({"role": "user", "content": message["content"]})
+            elif message["role"] == "Response":
+                formatted_messages.append({"role": "assistant", "content": message["content"]})
+            elif message["role"] == "Tool call":
+                content = [
+                    {
+                    "type": "function",
+                    "id": message["context"]["id"],
+                    "function": {
+                        "name": message["content"]["name"],
+                        "arguments": f'{message["content"]["arguments"]}'
+                        }
+                    }
+                ]
+                formatted_messages.append({"role": "assistant", "tool_calls": content})
+            elif message["role"] == "Tool results":
+                formatted_messages.append(self.tool_result(message["content"], message["context"]["arguments"], message["context"]["id"]))
+            else:
+                raise ValueError(f"Unknown message role: {message['role']}")
+        return formatted_messages
