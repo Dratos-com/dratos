@@ -6,8 +6,6 @@ from abc import abstractmethod
 
 from typing import Dict, List, AsyncIterator
 from dratos.models.providers.base_engine import BaseEngine
-from dratos.models.providers.openai_engine import OpenAIEngine
-
 
 class LLM():
     def __init__(
@@ -18,17 +16,8 @@ class LLM():
         self.model_name = model_name
         self.engine = engine
 
-        # LLM supports tools
-        if self.engine == OpenAIEngine:
-            self.support_tools = True
-        else:
-            self.support_tools = False
-
-        # LLM supports structured generation
-        if self.model_name.startswith("gpt-4o-"):
-            self.support_structured_output = True
-        else:
-            self.support_structured_output = False
+        self.support_tools = engine.support_tools(model_name)
+        self.support_structured_output = engine.support_structured_output(model_name)
 
     async def initialize(self):
         self.engine.initialize()

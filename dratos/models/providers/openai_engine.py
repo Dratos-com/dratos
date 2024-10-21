@@ -148,17 +148,6 @@ class OpenAIEngine(BaseEngine):
         completion_args = inspect.signature(self.client.chat.completions.create).parameters.keys()
         return list(completion_args)
 
-    def tool_result(self, result: Any, args: Dict, id: str) -> Dict: 
-        content =  {
-            **{k:v for k,v in args.items()}, 
-            **{"result": result}
-        }
-        return {
-            "role": "tool",
-            "content": content.__str__(),
-            "tool_call_id": id
-        }
-    
     def format_messages(self, messages: List[Dict]) -> List[Dict[str, str]]:
         formatted_messages = []
         for message in messages:
@@ -183,3 +172,11 @@ class OpenAIEngine(BaseEngine):
             else:
                 raise ValueError(f"Unknown message role: {message['role']}")
         return formatted_messages
+    
+    def support_tools(self, model_name: str) -> bool:
+        return True
+    
+    def support_structured_output(self, model_name: str) -> bool:
+        if model_name.startswith("gpt-4o-"):
+            return True
+        return False

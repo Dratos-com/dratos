@@ -4,7 +4,40 @@ import inspect
 from pydantic import BaseModel
 from typing import Callable, Dict, Any
 
-def tool_definition(tool: Callable) -> Dict:
+def get_device():
+    """
+    This module provides a function to determine the appropriate device for PyTorch based on the available backend.
+    """
+    if torch.backends.mps.is_available():
+        return torch.device("mps")
+    elif torch.backends.mps.is_built():
+        return torch.device("mps")
+    elif torch.backends.cuda.is_built():
+        return torch.device("cuda")
+    else:
+        return torch.device("cpu")
+
+def extract_json_from_str(response: str):
+    """
+    Extracts a JSON object from a string.
+
+    Args:
+        response (str): The string containing the JSON object.
+
+    Returns:
+        dict: The extracted JSON object.
+
+    Raises:
+        ValueError: If the string does not contain a valid JSON object.
+    """
+    try:
+        json_start = response.index("{")
+        json_end = response.rfind("}")
+        return json.loads(response[json_start : json_end + 1]), response[0:json_start], response[json_end + 1:]
+    except Exception as e:
+        raise ValueError("No valid JSON structure found in the input string")
+
+def function_to_openai_definition(tool: Callable) -> Dict:
     name = tool.__name__
     desc = inspect.getdoc(tool) or f"{name} definition."
     params = inspect.signature(tool).parameters
@@ -48,46 +81,11 @@ def tool_definition(tool: Callable) -> Dict:
         }
     }
 
-def extract_json_from_str(response: str):
-    """
-    Extracts a JSON object from a string.
-
-    Args:
-        response (str): The string containing the JSON object.
-
-    Returns:
-        dict: The extracted JSON object.
-
-    Raises:
-        ValueError: If the string does not contain a valid JSON object.
-    """
-    try:
-        json_start = response.index("{")
-        json_end = response.rfind("}")
-        return json.loads(response[json_start : json_end + 1]), response[0:json_start], response[json_end + 1:]
-    except Exception as e:
-        raise ValueError("No valid JSON structure found in the input string")
-
-def get_device():
-    """
-    This module provides a function to determine the appropriate device for PyTorch based on the available backend.
-    """
-    if torch.backends.mps.is_available():
-        return torch.device("mps")
-    elif torch.backends.mps.is_built():
-        return torch.device("mps")
-    elif torch.backends.cuda.is_built():
-        return torch.device("cuda")
-    else:
-        return torch.device("cpu")
-
-def pydantic_to_openai_schema(model: type[BaseModel]) -> dict:
-    """Convert Pydantic model to OpenAI schema."""
-    schema = model.model_json_schema()
-    return _pydantic_to_openai_schema(schema)
-
-def _pydantic_to_openai_schema(schema: dict) -> dict:
+def pydantic_to_openai_definition(model: type[BaseModel]) -> dict:
     """Convert Pydantic schema to OpenAI schema."""
+
+    schema = model.model_json_schema()
+
     openai_schema = {
         "properties": schema.get("properties", {}),
     }

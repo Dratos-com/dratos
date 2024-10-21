@@ -3,13 +3,11 @@ import json
 from dratos.models.types.LLM import LLM
 from pydantic import BaseModel
 
-from dratos.utils.utils import tool_definition, pydantic_to_openai_schema, extract_json_from_str
+from dratos.utils.utils import function_to_openai_definition, pydantic_to_openai_definition, extract_json_from_str
 from dratos.utils.pretty import pretty, pretty_stream
 
 import logging
 from rich.logging import RichHandler
-
-
 
 
 logging.basicConfig(
@@ -20,10 +18,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger("rich")
 
-
-# logger.info("This is an info message.")
-# logger.warning("This is a warning message.")
-# logger.error("This is an error message.")
 
 class Agent:
     def __init__(
@@ -49,16 +43,10 @@ class Agent:
         self.markdown_response = markdown_response
         self.verbose = verbose
 
-        logger.info(f"🎬 Initializing {name}...")
-
         self.messages = []
 
-        if self.response_model and not self.llm.support_structured_output:
-            self.messages.append({"role": "system", "content": 
-                                    f"{system_prompt if system_prompt else ''}\
-                                    \n{self.pydantic_schema_description()}"})
-            
-            self.pretty(self.messages[0]["content"], title="System prompt")
+        # Logging
+        logger.info(f"🎬 Initializing {name}...")
 
         if tools is not None and response_model is not None:
             raise ValueError("Cannot use both 'tools' and 'response_model'.")
@@ -67,10 +55,19 @@ class Agent:
             if response_model is None:
                 raise ValueError("A response can only be validated if a `response_model` is provided.")
 
+        # System prompt
+        if self.response_model and not self.llm.support_structured_output:
+            system_prompt = f"{system_prompt}\n"
+            self.record_message(f"{system_prompt or ''}\n{self.response_model_defition()}", "System prompt")
+        elif self.tools and not self.llm.support_tools:
+            self.record_message(f"{system_prompt or ''}\n{self.tool_definition()}", "System prompt")
+        elif system_prompt:
+            self.record_message(system_prompt, "System prompt")
+
     def append_message(self, message: str, role: str, **kwargs):
         return self.messages.append({"role": role, "content": message, "context": kwargs})
     
-    def record_message(self, message: str, role: str, print: bool = True, **kwargs):
+    def record_message(self, message: str, role: str, verbose: bool = True, **kwargs):
         if role == "System prompt":
             content = message
         elif role == "Prompt":
@@ -87,7 +84,7 @@ class Agent:
             raise ValueError(f"Unknown message role: {role}")
         
         self.append_message(content, role, **kwargs)
-        pretty(self, content, role) if print else None
+        pretty(self, content, role) if verbose else None
 
     def pydantic_validation(self, response:str)-> Type[BaseModel]:
         """Validates the response using Pydantic."""
@@ -113,7 +110,7 @@ class Agent:
             self.log_agent_info()
 
             completion_setting = kwargs if kwargs else self.completion_setting
-            tools = [tool_definition(tool) for tool in self.tools] if self.tools else None
+            tools = self.tool_definition()
 
             # Generation
             response = await self.llm.sync_gen(
@@ -126,11 +123,11 @@ class Agent:
             if self.tools and not isinstance(response, str):
                 complete_result = dict()
                 for tool_call in response:
-                    self.record_message(tool_call, role="Tool call")
                     for tool in self.tools:
                         if tool.__name__ == tool_call["name"]:
                             result = tool(**tool_call["arguments"])
                             complete_result.update({tool_call["name"]: result})
+                self.record_message(complete_result, role="Response")
                 return complete_result
             else:
                 self.record_message(response, role="Response")
@@ -168,14 +165,16 @@ class Agent:
             response += chunk
             yield chunk
 
-        self.record_message(response, role="Response", print=False)
+        self.record_message(response, role="Response", verbose=False)
     
-    def pydantic_schema_description(self):
-        response_model = pydantic_to_openai_schema(self.response_model)
-
-        return f"Always respond following the specifications:\
-                {json.dumps(pydantic_to_openai_schema(response_model))}\
-                \nYour response will include all required properties in a Json format."
+    def response_model_defition(self):
+        response_model = pydantic_to_openai_definition(self.response_model)
+        return f"""Always respond following the specifications:
+                    {json.dumps(response_model)}
+                    \nYour response will include all required properties in a Json format."""
+            
+    def tool_definition(self):
+        return [function_to_openai_definition(tool) for tool in self.tools] if self.tools else None
 
     def log_agent_info(self):
         tools_list = [tool.__name__ for tool in self.tools] if self.tools else None
