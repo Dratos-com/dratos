@@ -186,16 +186,10 @@ class Agent:
         if self.history:
             return self.messages
         
-        has_system_prompt = False
+        has_system_prompt = (
+            (self.response_model and not self.llm.support_structured_output) or
+            (self.tools and not self.llm.support_tools) or
+            self.system_prompt
+        )
 
-        if self.response_model and not self.llm.support_structured_output:
-            has_system_prompt = True
-        elif self.tools and not self.llm.support_tools:
-            has_system_prompt = True
-        elif self.system_prompt:
-            has_system_prompt = True
-
-        if has_system_prompt:
-            return [self.messages[0], self.messages[-1]]
-        else:
-            return [self.messages[-1]]
+        return [self.messages[0], self.messages[-1]] if has_system_prompt else [self.messages[-1]]
