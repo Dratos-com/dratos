@@ -42,7 +42,7 @@ class Agent:
         self.response_validation = response_validation
         self.markdown_response = markdown_response
         self.verbose = verbose
-
+        self.system_prompt = system_prompt
         self.messages = []
 
         # Logging
@@ -116,7 +116,7 @@ class Agent:
             response = await self.llm.sync_gen(
                 response_model=self.response_model,
                 tools=tools,
-                messages=self.messages[:-1] if self.history else [self.messages[-1]],
+                messages=self.get_messages(),
                 **completion_setting)
 
             # Tool calling
@@ -160,7 +160,7 @@ class Agent:
         # Generation
         response = ""
         async for chunk in pretty_stream(self,
-                                         messages=self.messages[:-1] if self.history else [self.messages[-1]], 
+                                         messages=self.get_messages(), 
                                          completion_setting=completion_setting):
             response += chunk
             yield chunk
@@ -181,3 +181,21 @@ class Agent:
         response_model_name = self.response_model.__name__ if self.response_model else None
         logger.info(f"Tools: {tools_list}")
         logger.info(f"Response Model: {response_model_name}")
+
+    def get_messages(self):
+        if self.history:
+            return self.messages
+        
+        has_system_prompt = False
+
+        if self.response_model and not self.llm.support_structured_output:
+            has_system_prompt = True
+        elif self.tools and not self.llm.support_tools:
+            has_system_prompt = True
+        elif self.system_prompt:
+            has_system_prompt = True
+
+        if has_system_prompt:
+            return [self.messages[0], self.messages[-1]]
+        else:
+            return [self.messages[-1]]
