@@ -119,7 +119,8 @@ class Agent:
             if not isinstance(prompt, str):
                 raise ValueError("Prompt must be a string")
 
-            prompt = self.search_memory(prompt)
+            if self.memory:
+                prompt = self.search_memory(prompt)
 
             self.record_message(prompt, role="Prompt")
             self.log_agent_info()
