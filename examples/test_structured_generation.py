@@ -48,7 +48,7 @@ def structured_generation(prompt):
         # verbose=True,
     )
 
-    return agent.sync_gen(prompt)
+    return agent.sync_gen({"text": prompt})
 
 # print(structured_generation("What is the capital of Canada?"))
 
@@ -75,9 +75,9 @@ def structured_generation_without_support(prompt):
         llm=llm_without_structured_generation_support,
         response_model=Capital,
         response_validation=True,
-        # verbose=True,
+        #verbose=True,
     )
 
-    return agent.sync_gen(prompt)
+    return agent.sync_gen({"text": prompt})
 
-# print(structured_generation("What is the capital of Canada?"))
+# print(structured_generation_without_support("What is the capital of Canada?"))

@@ -42,7 +42,7 @@ class OpenAIEngine(BaseEngine):
         model_name: str = "gpt-4o",
         response_model: BaseModel | None = None,
         tools: List[Dict] = None,
-        messages: List[Dict] = None,
+        messages: List[Dict[str, Any]] = None,
         **kwargs,
     ):
         """
@@ -148,15 +148,15 @@ class OpenAIEngine(BaseEngine):
         completion_args = inspect.signature(self.client.chat.completions.create).parameters.keys()
         return list(completion_args)
 
-    def format_messages(self, messages: List[Dict]) -> List[Dict[str, str]]:
+    def format_messages(self, messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         formatted_messages = []
         for message in messages:
             if message["role"] == "System prompt":
-                formatted_messages.append({"role": "system", "content": message["content"]})
+                formatted_messages.append({"role": "system", "content": message["content"]["text"]})
             elif message["role"] == "Prompt":
-                formatted_messages.append({"role": "user", "content": message["content"]})
+                formatted_messages.append({"role": "user", "content": message["content"]["text"]})
             elif message["role"] == "Response":
-                formatted_messages.append({"role": "assistant", "content": message["content"]})
+                formatted_messages.append({"role": "assistant", "content": message["content"]["text"]})
             elif message["role"] == "Tool call":
                 content = [
                     {

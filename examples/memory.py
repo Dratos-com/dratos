@@ -96,4 +96,4 @@ def qdrant_memory(prompt:str):
 with mlflow.start_run():
    mlflow.openai.autolog()
    # print(memory("What do I like to do?"))
-   print(qdrant_memory("What do I like to do?"))
+   print(qdrant_memory({"text": "What do I like to do?"}))

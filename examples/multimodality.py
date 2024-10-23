@@ -23,40 +23,9 @@ from dratos import LLM, Agent
 from dratos import OpenAIEngine
 
 
-def tool(prompt):
-    """
-    Generate a text completion for a given prompt.
-
-    >>> tool("What is 2 + 2?")
-    {'add': 4}
-    """
-    llm = LLM(
-        model_name="gpt-4o", 
-        engine=OpenAIEngine(),
-    )
-
-    def add(arg1: int, arg2: int) -> int:
-        return arg1 + arg2
-
-    agent = Agent(
-        name="agent",
-        llm=llm,
-        #verbose=True,
-        tools=[add]
-    )
-
-    return agent.sync_gen({"text": prompt})
-
-#print(tool("What is 2 + 2?"))
+def multimodal(prompt, image_url):
 
 
-def use_multiple_tools(prompt):
-    """
-    Generate a text completion for a given prompt using multiple tools.
-
-    >>> use_multiple_tools("What is 2 + 2 and 3 * 3?")
-    {'add': 4, 'multiply': 9}
-    """
     llm = LLM(
         model_name="gpt-4o", 
         engine=OpenAIEngine(),
@@ -75,6 +44,6 @@ def use_multiple_tools(prompt):
         tools=[add, multiply],
     )
 
-    return agent.sync_gen({"text": prompt})
+    return agent.sync_gen(prompt)
 
 #print(use_multiple_tools("What is 2 + 2 and 3 * 3?"))

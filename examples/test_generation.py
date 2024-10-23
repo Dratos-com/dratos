@@ -37,10 +37,10 @@ def generate(prompt):
 
     simple_agent = Agent(
         name="simple_agent",
-        #verbose=True,
+        # verbose=True,
         llm=llm,
     )
 
-    return simple_agent.sync_gen(prompt)
+    return simple_agent.sync_gen({"text": prompt})
 
-#print(generate("Say hi in french"))
+# print(generate("Say hi in french"))

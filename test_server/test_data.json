@@ -463,5 +463,37 @@
       }
     },
     "system_fingerprint": "fp_a7d06e42a7"
+  },
+  "{\"messages\": [{\"content\": null, \"role\": \"user\"}], \"model\": \"gpt-4o\", \"path\": \"chat/completions\"}": {
+    "error": {
+      "message": "Invalid value for 'content': expected a string, got null.",
+      "type": "invalid_request_error",
+      "param": "messages.[0].content",
+      "code": null
+    }
+  },
+  "{\"messages\": [{\"content\": null, \"role\": \"user\"}], \"model\": \"gpt-4o-2024-08-06\", \"path\": \"chat/completions\", \"response_format\": {\"json_schema\": {\"name\": \"Capital\", \"schema\": {\"additionalProperties\": false, \"properties\": {\"capital\": {\"title\": \"Capital\", \"type\": \"string\"}, \"country\": {\"title\": \"Country\", \"type\": \"string\"}}, \"required\": [\"capital\", \"country\"], \"title\": \"Capital\", \"type\": \"object\"}, \"strict\": true}, \"type\": \"json_schema\"}, \"stream\": false}": {
+    "error": {
+      "message": "Invalid value for 'content': expected a string, got null.",
+      "type": "invalid_request_error",
+      "param": "messages.[0].content",
+      "code": null
+    }
+  },
+  "{\"messages\": [{\"content\": null, \"role\": \"user\"}], \"model\": \"gpt-4o\", \"path\": \"chat/completions\", \"tool_choice\": \"auto\", \"tools\": [{\"function\": {\"description\": \"add definition.\", \"name\": \"add\", \"parameters\": {\"additionalProperties\": false, \"properties\": {\"arg1\": {\"description\": \"arg1 parameter.\", \"type\": \"integer\"}, \"arg2\": {\"description\": \"arg2 parameter.\", \"type\": \"integer\"}}, \"required\": [\"arg1\", \"arg2\"], \"type\": \"object\"}}, \"type\": \"function\"}]}": {
+    "error": {
+      "message": "Invalid value for 'content': expected a string, got null.",
+      "type": "invalid_request_error",
+      "param": "messages.[0].content",
+      "code": null
+    }
+  },
+  "{\"messages\": [{\"content\": null, \"role\": \"user\"}], \"model\": \"gpt-4o\", \"path\": \"chat/completions\", \"tool_choice\": \"auto\", \"tools\": [{\"function\": {\"description\": \"add definition.\", \"name\": \"add\", \"parameters\": {\"additionalProperties\": false, \"properties\": {\"arg1\": {\"description\": \"arg1 parameter.\", \"type\": \"integer\"}, \"arg2\": {\"description\": \"arg2 parameter.\", \"type\": \"integer\"}}, \"required\": [\"arg1\", \"arg2\"], \"type\": \"object\"}}, \"type\": \"function\"}, {\"function\": {\"description\": \"multiply definition.\", \"name\": \"multiply\", \"parameters\": {\"additionalProperties\": false, \"properties\": {\"arg1\": {\"description\": \"arg1 parameter.\", \"type\": \"integer\"}, \"arg2\": {\"description\": \"arg2 parameter.\", \"type\": \"integer\"}}, \"required\": [\"arg1\", \"arg2\"], \"type\": \"object\"}}, \"type\": \"function\"}]}": {
+    "error": {
+      "message": "Invalid value for 'content': expected a string, got null.",
+      "type": "invalid_request_error",
+      "param": "messages.[0].content",
+      "code": null
+    }
   }
 }

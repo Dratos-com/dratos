@@ -4,7 +4,7 @@ This module defines the base language model class and related classes.
 from __future__ import annotations
 from abc import abstractmethod
 
-from typing import Dict, List, AsyncIterator
+from typing import Dict, List, AsyncIterator, Any
 from dratos.models.providers.base_engine import BaseEngine
 
 class LLM():
@@ -27,10 +27,9 @@ class LLM():
 
     @abstractmethod
     async def sync_gen(self, 
-                       # prompt: dict, 
                        response_model: str | Dict | None = None,
                        tools: List[Dict] = None,
-                       messages: List[Dict[str, str]] = None,
+                       messages: List[Dict[str, Any]] = None,
                        **kwargs
                        ) -> str:
         if tools is not None and response_model is not None:
@@ -40,7 +39,7 @@ class LLM():
         return await self.engine.sync_gen(self.model_name, response_model, tools, messages, **kwargs)
 
     async def async_gen(self, 
-                     messages: List[Dict[str, str]] = None,
+                     messages: List[Dict[str, Any]] = None,
                      **kwargs
                      ) -> AsyncIterator[str]:
         if not self.is_initialized:

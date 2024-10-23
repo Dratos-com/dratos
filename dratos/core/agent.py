@@ -1,4 +1,4 @@
-from typing import List, Dict, Type
+from typing import List, Dict, Type, Any
 import json
 from dratos.models.types.LLM import LLM
 from pydantic import BaseModel
@@ -70,22 +70,22 @@ class Agent:
 
         # System prompt
         if self.response_model and not self.llm.support_structured_output:
-            system_prompt = f"{system_prompt}\n"
-            self.record_message(f"{system_prompt or ''}\n{self.response_model_defition()}", "System prompt")
+            system_prompt = f"{system_prompt}\n" if system_prompt else ""
+            self.record_message(f"{system_prompt}\n{self.response_model_defition()}", "System prompt")
         elif self.tools and not self.llm.support_tools:
-            self.record_message(f"{system_prompt or ''}\n{self.tool_definition()}", "System prompt")
+            system_prompt = f"{system_prompt}\n" if system_prompt else ""
+            self.record_message(f"{system_prompt}\n{self.tool_definition()}", "System prompt")
         elif system_prompt:
             self.record_message(system_prompt, "System prompt")
 
     def append_message(self, message: str, role: str, **kwargs):
         return self.messages.append({"role": role, "content": message, "context": kwargs})
     
-    def record_message(self, message: str, role: str, verbose: bool = True, **kwargs):
-        if role == "System prompt":
-            content = message
-        elif role == "Prompt":
-            content = message
-        elif role == "Response":
+    def record_message(self, message: str | Dict[str, Any], role: str, verbose: bool = True, **kwargs):
+        if isinstance(message, str):
+            message = {"text": message}
+
+        if role == "System prompt" or role == "Prompt" or role == "Response":
             content = message
         elif role == "Tool call":
             content = {
@@ -111,19 +111,17 @@ class Agent:
             logger.error(f"❌ Response format is not valid: {e}")
             raise e
     
-    def sync_gen(self, prompt: str, **kwargs):
+    def sync_gen(self, prompt: str | Dict[str, Any], **kwargs):
         import asyncio
 
-        async def generate(prompt: str):
+        async def generate(prompt: str | Dict[str, Any]):
+            
             # Setup
-            if not isinstance(prompt, str):
-                raise ValueError("Prompt must be a string")
-
             if self.memory:
                 prompt = self.search_memory(prompt)
 
-            self.record_message(prompt, role="Prompt")
             self.log_agent_info()
+            self.record_message(prompt, role="Prompt")
 
             completion_setting = kwargs if kwargs else self.completion_setting
             tools = self.tool_definition()
@@ -161,19 +159,16 @@ class Agent:
         except RuntimeError:
             return asyncio.run(generate(prompt))
 
-    async def async_gen(self, prompt: str, **kwargs):
+    async def async_gen(self, prompt: str | Dict[str, Any], **kwargs):
         
         # Setup
-        if not isinstance(prompt, str):
-            raise ValueError("Prompt must be a string")
         if self.tools or self.response_model:
             raise ValueError("Cannot use 'tools' and 'response_model' with async_gen, use sync_gen instead.")
         
         completion_setting = kwargs if kwargs else self.completion_setting
 
         if self.memory:
-            result = self.memory.search(query=prompt, agent_id=self.name)
-            prompt = f"{prompt}\n\n Related memories:\n{result}"
+            prompt = self.search_memory(prompt)
 
         self.record_message(prompt, role="Prompt")
         
@@ -199,8 +194,8 @@ class Agent:
     def log_agent_info(self):
         tools_list = [tool.__name__ for tool in self.tools] if self.tools else None
         response_model_name = self.response_model.__name__ if self.response_model else None
-        logger.info(f"Tools: {tools_list}")
-        logger.info(f"Response Model: {response_model_name}")
+        logger.info(f"Tools: {tools_list}") if self.llm.support_tools and tools_list else None
+        logger.info(f"Response Model: {response_model_name}") if self.llm.support_structured_output and response_model_name else None
 
     def get_messages(self):
         if self.history:
@@ -225,8 +220,10 @@ class Agent:
             self.memory = Memory()
             return self.memory.add(memory, agent_id=self.name, metadata=kwargs)
 
-    def search_memory(self, query: str):
+    def search_memory(self, query: str | Dict[str, Any]):
         if self.memory:
+            if isinstance(query, dict):
+                query = query["text"]
             # result = self.memory.search(query=query, agent_id=self.name)
             # related_memories = '\n'.join([f"{memory['created_at']} - {memory['memory']}" for memory in result])
             results = self.memory.search(query, agent_id=self.name)
