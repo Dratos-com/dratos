@@ -1,6 +1,6 @@
 from typing import List, Dict, Type, Any
 import json
-from dratos.models.types.LLM import LLM
+from dratos.models.LLM import LLM
 from pydantic import BaseModel
 
 from dratos.utils.utils import function_to_openai_definition, pydantic_to_openai_definition, extract_json_from_str

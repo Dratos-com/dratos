@@ -22,15 +22,15 @@ sys.path.append(project_root)
 import asyncio
 
 from dratos import LLM, prompt, Agent
-from dratos import OpenAIEngine
+from dratos import OpenAI
 from pydantic import BaseModel
 
-# test_engine = OpenAIEngine()
+# test_engine = OpenAI()
 # print(test_engine.get_completion_setting())
 
 llm = LLM(
     model_name="gpt-4o-2024-08-06", 
-    engine=OpenAIEngine(),
+    engine=OpenAI(),
 )
 
 @prompt

@@ -5,13 +5,13 @@ from __future__ import annotations
 from abc import abstractmethod
 
 from typing import Dict, List, AsyncIterator, Any
-from dratos.models.providers.base_engine import BaseEngine
+from dratos.models.adapters.base_adapter import BaseAdapter
 
 class LLM():
     def __init__(
         self,
         model_name: str,
-        engine: BaseEngine
+        engine: BaseAdapter
     ):
         self.model_name = model_name
         self.engine = engine

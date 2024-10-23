@@ -1,2 +1,2 @@
-from dratos.models.providers import OpenAIEngine
-from dratos.models.types import LLM, LLM
+from dratos.models.adapters import OpenAI
+from dratos.models.LLM import LLM

@@ -20,7 +20,7 @@ sys.path.append(project_root)
 ################### Adding Project Root to Python Path #############################
 
 from dratos import LLM, Agent
-from dratos import OpenAIEngine
+from dratos import OpenAI
 
 
 def tool(prompt):
@@ -32,7 +32,7 @@ def tool(prompt):
     """
     llm = LLM(
         model_name="gpt-4o", 
-        engine=OpenAIEngine(),
+        engine=OpenAI(),
     )
 
     def add(arg1: int, arg2: int) -> int:
@@ -59,7 +59,7 @@ def use_multiple_tools(prompt):
     """
     llm = LLM(
         model_name="gpt-4o", 
-        engine=OpenAIEngine(),
+        engine=OpenAI(),
     )
 
     def add(arg1: int, arg2: int) -> int:

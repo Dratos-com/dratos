@@ -20,7 +20,7 @@ sys.path.append(project_root)
 ################### Adding Project Root to Python Path #############################
 
 from dratos import LLM, Agent
-from dratos import OpenAIEngine,QdrantMemory
+from dratos import OpenAI, QdrantMemory
 
 import mlflow
 mlflow.set_tracking_uri("http://127.0.0.1:5000")
@@ -35,7 +35,7 @@ mlflow.set_tracking_uri("http://127.0.0.1:5000")
 #     """
 #     llm = LLM(
 #         model_name="gpt-4o", 
-#         engine=OpenAIEngine(),
+#         engine=OpenAI(),
 #     )
 
 #     memory_config = {
@@ -82,7 +82,7 @@ def qdrant_memory(prompt:str):
 
     llm = LLM(
         model_name="gpt-4o", 
-        engine=OpenAIEngine(),
+        engine=OpenAI(),
     )
 
     agent = Agent(

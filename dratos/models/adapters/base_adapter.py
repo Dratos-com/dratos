@@ -6,8 +6,8 @@ import logging
 from abc import ABC, abstractmethod
 
 
-class BaseEngine(ABC):
-    """Base class for all engines."""
+class BaseAdapter(ABC):
+    """Base class for all adapters."""
     def __init__(
         self,
         engine: str,

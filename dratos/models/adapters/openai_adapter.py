@@ -9,12 +9,12 @@ from typing import Dict, List, AsyncIterator, Any
 from openai import AsyncOpenAI, OpenAI
 from pydantic import BaseModel
 
-from .base_engine import BaseEngine
+from .base_adapter import BaseAdapter
 
 
-class OpenAIEngine(BaseEngine):
+class OpenAI(BaseAdapter):
     """
-    OpenAIEngine is a class that wraps the OpenAI API.
+    OpenAI is a class that wraps the OpenAI API.
     """
     def __init__(
         self,

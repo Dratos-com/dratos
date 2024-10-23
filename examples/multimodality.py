@@ -20,7 +20,7 @@ sys.path.append(project_root)
 ################### Adding Project Root to Python Path #############################
 
 from dratos import LLM, Agent
-from dratos import OpenAIEngine
+from dratos import OpenAI
 
 
 def multimodal(prompt, image_url):
@@ -28,7 +28,7 @@ def multimodal(prompt, image_url):
 
     llm = LLM(
         model_name="gpt-4o", 
-        engine=OpenAIEngine(),
+        engine=OpenAI(),
     )
 
     def add(arg1: int, arg2: int) -> int:

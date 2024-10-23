@@ -25,11 +25,11 @@ sys.path.append(project_root)
 import asyncio
 
 from dratos import LLM, prompt, Agent
-from dratos import OpenAIEngine
+from dratos import OpenAI
 
 llm = LLM(
     model_name="gpt-4o", 
-    engine=OpenAIEngine(),
+    engine=OpenAI(),
 )
 
 @prompt
