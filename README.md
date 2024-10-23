@@ -50,3 +50,27 @@ def example_function():
 Note that when streaming responses, two streams cannot be simultaneously streamed in the terminal. And so in that event, streams will be misformatted. However a single stream can be streamed simultanously by two distinct interface (e.g. terminal and app, etc)
 
 Two functions within the Agent class: `sync_gen()` returns the complete response once it's generated and `async_gen()`. async_gen() support response streaming.
+
+
+# Qdrant
+Setup and Run Qdrant Locally:
+The easiest way to run Qdrant locally is using Docker. Here are the steps:
+```bash
+# Pull the Qdrant image
+docker pull qdrant/qdrant
+
+# Run Qdrant
+docker run -p 6333:6333 -p 6334:6334 \
+    -v $(pwd)/qdrant_storage:/qdrant/storage:z \
+    qdrant/qdrant
+```
+
+This will start Qdrant and make it accessible at:
+REST API: localhost:6333
+Dashboard: http://localhost:6333/dashboard
+GRPC API: localhost:63341
+
+To stop Qdrant, you can use Ctrl+C in the terminal where it's running, or stop using docker ui or use:
+```bash
+docker stop <container_id>
+```

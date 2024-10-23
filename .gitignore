@@ -6,8 +6,12 @@ service_account_credentials.json
 .vscode
 .cursorignore
 __pycache__
-mlruns
+
 shared_env.json
+
+qdrant_storage/
+mlartifacts/
+mlruns/
 
 # Ignore .DS_Store files everywhere
 **/.DS_Store

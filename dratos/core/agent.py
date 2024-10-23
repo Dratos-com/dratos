@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 from dratos.utils.utils import function_to_openai_definition, pydantic_to_openai_definition, extract_json_from_str
 from dratos.utils.pretty import pretty, pretty_stream
+from dratos.memory.memory import Memory
 
 import logging
 from rich.logging import RichHandler
@@ -24,6 +25,8 @@ class Agent:
             self,
             name: str,
             llm: LLM,
+            memory_config: Dict = None,
+            memory: Memory = None,
             system_prompt: str = None,
             verbose: bool = False,
             history: bool = False,
@@ -35,6 +38,7 @@ class Agent:
         ):
         self.name = name
         self.llm = llm
+        self.memory_config = memory_config
         self.completion_setting = completion_setting
         self.history = history
         self.tools = tools
@@ -43,6 +47,7 @@ class Agent:
         self.markdown_response = markdown_response
         self.verbose = verbose
         self.system_prompt = system_prompt
+          
         self.messages = []
 
         # Logging
@@ -54,6 +59,14 @@ class Agent:
         if response_validation:
             if response_model is None:
                 raise ValueError("A response can only be validated if a `response_model` is provided.")
+
+        if memory:
+            self.memory = memory
+        elif memory_config:
+            logger.info(f"🔍 Initializing Memory from config")
+            self.memory = Memory.from_config(memory_config)
+        else:
+            self.memory = None  
 
         # System prompt
         if self.response_model and not self.llm.support_structured_output:
@@ -101,10 +114,12 @@ class Agent:
     def sync_gen(self, prompt: str, **kwargs):
         import asyncio
 
-        async def generate():
+        async def generate(prompt: str):
             # Setup
             if not isinstance(prompt, str):
                 raise ValueError("Prompt must be a string")
+
+            prompt = self.search_memory(prompt)
 
             self.record_message(prompt, role="Prompt")
             self.log_agent_info()
@@ -141,9 +156,9 @@ class Agent:
         try:
             loop = asyncio.get_running_loop()
             if loop.is_running():
-                return loop.run_until_complete(generate())
+                return loop.run_until_complete(generate(prompt))
         except RuntimeError:
-            return asyncio.run(generate())
+            return asyncio.run(generate(prompt))
 
     async def async_gen(self, prompt: str, **kwargs):
         
@@ -154,6 +169,10 @@ class Agent:
             raise ValueError("Cannot use 'tools' and 'response_model' with async_gen, use sync_gen instead.")
         
         completion_setting = kwargs if kwargs else self.completion_setting
+
+        if self.memory:
+            result = self.memory.search(query=prompt, agent_id=self.name)
+            prompt = f"{prompt}\n\n Related memories:\n{result}"
 
         self.record_message(prompt, role="Prompt")
         
@@ -193,3 +212,24 @@ class Agent:
         )
 
         return [self.messages[0], self.messages[-1]] if has_system_prompt else [self.messages[-1]]
+
+    def get_memory(self):
+        return self.memory.get_all(agent_id=self.name) if self.memory else None
+    
+    def add_memory(self, memory: str, **kwargs):
+        if self.memory:
+            return self.memory.add(memory, agent_id=self.name, metadata=kwargs)
+        else:
+            logger.info("Initializing Memory Instance")
+            self.memory = Memory()
+            return self.memory.add(memory, agent_id=self.name, metadata=kwargs)
+
+    def search_memory(self, query: str):
+        if self.memory:
+            # result = self.memory.search(query=query, agent_id=self.name)
+            # related_memories = '\n'.join([f"{memory['created_at']} - {memory['memory']}" for memory in result])
+            results = self.memory.search(query, agent_id=self.name)
+            related_memories = '\n'.join([f"{result['text']}" for result in results])
+            return f"{query}\n\nMemory:\n{related_memories}"
+        else:
+            return None
