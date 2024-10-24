@@ -9,10 +9,10 @@ from typing import Dict, List, AsyncIterator, Any
 from openai import AsyncOpenAI, OpenAI
 from pydantic import BaseModel
 
-from .base_adapter import BaseAdapter
+from .base_adapter import BaseEngine
 
 
-class OpenAI(BaseAdapter):
+class OpenAI(BaseEngine):
     """
     OpenAI is a class that wraps the OpenAI API.
     """
@@ -179,4 +179,9 @@ class OpenAI(BaseAdapter):
     def support_structured_output(self, model_name: str) -> bool:
         if model_name.startswith("gpt-4o-"):
             return True
+        return False
+    
+    def supported_documents(self, model_name: str, extension: str) -> bool:
+        if model_name == "gpt-4o-mini":
+            return extension in [".png", ".docx", ".pdf", ".txt"]
         return False

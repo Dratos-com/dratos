@@ -495,5 +495,13 @@
       "param": "messages.[0].content",
       "code": null
     }
+  },
+  "{\"messages\": [{\"content\": \"Say hi in french\", \"role\": \"user\"}], \"model\": \"gpt-4okd\", \"path\": \"chat/completions\"}": {
+    "error": {
+      "message": "The model `gpt-4okd` does not exist or you do not have access to it.",
+      "type": "invalid_request_error",
+      "param": null,
+      "code": "model_not_found"
+    }
   }
 }

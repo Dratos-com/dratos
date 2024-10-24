@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 from dratos.utils.utils import function_to_openai_definition, pydantic_to_openai_definition, extract_json_from_str
 from dratos.utils.pretty import pretty, pretty_stream
-from dratos.memory.memory import Memory
+from dratos.memory.mem0 import Memory
 
 import logging
 from rich.logging import RichHandler
@@ -118,7 +118,7 @@ class Agent:
             
             # Setup
             if self.memory:
-                prompt = self.search_memory(prompt)
+                prompt = self.get_context(prompt)
 
             self.log_agent_info()
             self.record_message(prompt, role="Prompt")
@@ -168,7 +168,7 @@ class Agent:
         completion_setting = kwargs if kwargs else self.completion_setting
 
         if self.memory:
-            prompt = self.search_memory(prompt)
+            prompt = self.get_context(prompt)
 
         self.record_message(prompt, role="Prompt")
         
@@ -220,7 +220,7 @@ class Agent:
             self.memory = Memory()
             return self.memory.add(memory, agent_id=self.name, metadata=kwargs)
 
-    def search_memory(self, query: str | Dict[str, Any]):
+    def get_context(self, query: str | Dict[str, Any]):
         if self.memory:
             if isinstance(query, dict):
                 query = query["text"]

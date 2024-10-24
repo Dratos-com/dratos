@@ -32,6 +32,8 @@ def pretty(agent: "Agent", message: Dict[str, Any], title: str):
     else:
         color = "dark_orange3"
 
+    tokens = None
+    
     try:
         tokenizer = tiktoken.encoding_for_model(agent.llm.model_name)
         tokens = len(tokenizer.encode(str(message["text"])))
@@ -39,7 +41,7 @@ def pretty(agent: "Agent", message: Dict[str, Any], title: str):
     except KeyError:
         tokenizer = tiktoken.encoding_for_model("gpt-4o")
     
-    title = f"{title} ({tokens} tokens)"
+    title = f"{title} ({tokens} tokens)" if tokens else title
 
     if agent.markdown_response:
         content = Markdown(str(message["text"]))

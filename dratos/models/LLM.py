@@ -1,17 +1,15 @@
 """
 This module defines the base language model class and related classes.
 """
-from __future__ import annotations
-from abc import abstractmethod
 
 from typing import Dict, List, AsyncIterator, Any
-from dratos.models.adapters.base_adapter import BaseAdapter
+from dratos.models.engines.base_adapter import BaseEngine
 
 class LLM():
     def __init__(
         self,
         model_name: str,
-        engine: BaseAdapter
+        engine: BaseEngine
     ):
         self.model_name = model_name
         self.engine = engine
@@ -23,9 +21,8 @@ class LLM():
         self.engine.initialize()
 
     async def shutdown(self):
-        pass
+        self.engine.shutdown()
 
-    @abstractmethod
     async def sync_gen(self, 
                        response_model: str | Dict | None = None,
                        tools: List[Dict] = None,
