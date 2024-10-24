@@ -38,6 +38,14 @@ class OpenAI(BaseEngine):
             base_url=self.base_url
         )
 
+    async def shutdown(self) -> None:
+        """
+        Shutdown the OpenAI engine.
+        """
+        if self.client:
+            await self.client.close()
+            self.client = None
+
     async def sync_gen(
         self,
         model_name: str = "gpt-4o",
@@ -121,13 +129,6 @@ class OpenAI(BaseEngine):
             if chunk.choices[0].delta.content is not None:
                 yield chunk.choices[0].delta.content
 
-    async def shutdown(self) -> None:
-        """
-        Shutdown the OpenAI engine.
-        """
-        if self.client:
-            await self.client.close()
-
     def format_messages(self, messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         formatted_messages = []
         for message in messages:
@@ -136,7 +137,7 @@ class OpenAI(BaseEngine):
             elif message["role"] == "Prompt":
                 content = [{"type": "text", "text": message["content"]["text"]}]
                 for key, value in message["content"].items():
-                    if key != "text" and (key.endswith(".png") or key.endswith(".jpg") or key.endswith(".jpeg") or key.endswith(".pdf")):
+                    if key != "text" and (key.endswith(".png") or key.endswith(".jpg") or key.endswith(".jpeg") or key.endswith(".gif") or key.endswith(".webp")):
                         if isinstance(value, str) and urlparse(value).scheme in ["http", "https", "ftp", "ftps", "data"]:
                             content.append({
                                 "type": "image_url",
@@ -145,10 +146,11 @@ class OpenAI(BaseEngine):
                                 }
                             })
                         else:
+                            extension = key.split('.')[-1]
                             content.append({
                                 "type": "image_url",
                                 "image_url": {
-                                    "url": f"data:image/{key.split('.')[-1]};base64,{value}"
+                                    "url": f"data:image/{extension};base64,{value}"
                                 }
                             })
                 formatted_messages.append({"role": "user", "content": content})

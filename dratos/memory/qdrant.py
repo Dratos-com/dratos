@@ -18,25 +18,32 @@ class QdrantMemory:
             ),
         )
 
-    def add(self, documents: List[str], agent_id: str) -> None:
+    def add(self, content: List[str], metadata: List[Dict[str, Any]]) -> None:
         """
-        Add documents to the Qdrant collection.
+        Add content and metadata to the Qdrant collection.
 
         Args:
-            documents (List[str]): List of documents to add.
-            agent_id (str): The ID of the agent associated with these documents.
+            content (List[str]): List of content to add.
+            metadata (List[Dict[str, Any]]): List of metadata corresponding to each content item.
         """
-        vectors = self.encoder.encode(documents)
+        if len(content) != len(metadata):
+            raise ValueError("The number of content items must match the number of metadata items.")
+
+        vectors = self.encoder.encode(content)
 
         self.client.upsert(
             collection_name=self.collection_name,
             points=[
-                models.PointStruct(id=idx, vector=vector.tolist(), payload={"text": text, "agent_id": agent_id})
-                for idx, (text, vector) in enumerate(zip(documents, vectors))
+                models.PointStruct(
+                    id=idx, 
+                    vector=vector.tolist(), 
+                    payload={**meta}
+                )
+                for idx, (vector, meta) in enumerate(zip(vectors, metadata))
             ]
         )
 
-    def search(self, query: str, agent_id: str, limit: int = 3) -> List[Dict[str, Any]]:
+    def search(self, query: str, limit: int = 3) -> List[Dict[str, Any]]:
         """
         Search for similar documents in the Qdrant collection.
 
@@ -53,19 +60,11 @@ class QdrantMemory:
         search_result = self.client.search(
             collection_name=self.collection_name,
             query_vector=query_vector,
-            query_filter=models.Filter(
-                must=[
-                    models.FieldCondition(
-                        key="agent_id",
-                        match=models.MatchValue(value=agent_id)
-                    )
-                ]
-            ),
             limit=limit
         )
 
         return [
-            {"id": result.id, "score": result.score, "text": result.payload['text']}
+            {"id": result.id, "score": result.score, "product": result.payload}
             for result in search_result
         ]
 
@@ -73,17 +72,24 @@ class QdrantMemory:
 if __name__ == "__main__":
     memory = QdrantMemory("my_collection")
 
-    # Add documents
-    documents = [
+    # Add content with metadata
+    content = [
         "The quick brown fox jumps over the lazy dog",
         "Lorem ipsum dolor sit amet",
         "Qdrant is a vector database"
     ]
-    memory.add(documents, "agent_123")
+    metadata = [
+        {"source": "fable", "category": "animals"},
+        {"source": "latin", "category": "placeholder"},
+        {"source": "tech", "category": "database"}
+    ]
+    memory.add(content, metadata)
 
     # Search
     query = "vector database"
-    results = memory.search(query, "agent_123")
+    results = memory.search(query)
 
     for result in results:
-        print(f"ID: {result['id']}, Score: {result['score']}, Text: {result['text']}")
+        print(f"ID: {result['id']}, Score: {result['score']}, Content: {result['text']}")
+        print(f"Metadata: {result['payload']}")
+        print()

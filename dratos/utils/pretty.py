@@ -41,7 +41,7 @@ def pretty(agent: "Agent", message: Dict[str, Any], title: str):
     except KeyError:
         tokenizer = tiktoken.encoding_for_model("gpt-4o")
     
-    title = f"{title} ({tokens} tokens)" if tokens else title
+    title = f"{agent.name}: {title} ({tokens} tokens)" if tokens else f"{agent.name}: {title}"
 
     if agent.markdown_response:
         content = Markdown(str(message["text"]))
@@ -65,7 +65,7 @@ def pretty(agent: "Agent", message: Dict[str, Any], title: str):
                 ))
     
     documents = [key for key in message.keys() if key != "text"]
-    logging.info(f"Documents: {documents}") if documents else None
+    logging.info(f"Document(s): {documents}") if documents else None
 
 async def pretty_stream(agent: "Agent", messages: List[Dict[str, Any]], completion_setting: Dict):
     console = Console()

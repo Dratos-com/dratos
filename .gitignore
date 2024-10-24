@@ -12,6 +12,8 @@ shared_env.json
 qdrant_storage/
 mlartifacts/
 playground/
+credentials.json
+token.json
 mlruns/
 
 # Ignore .DS_Store files everywhere

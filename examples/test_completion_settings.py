@@ -39,8 +39,11 @@ def generate(prompt):
         name="simple_agent",
         # verbose=True,
         llm=llm,
+        completion_setting={
+                "temperature": 0,
+            }
     )
 
     return simple_agent.sync_gen({"text": prompt})
 
-# generate("Say hi in french")
+# generate("Say 'hi' in french")

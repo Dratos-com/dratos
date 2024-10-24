@@ -18,10 +18,10 @@ class LLM():
         self.support_structured_output = engine.support_structured_output(model_name)
 
     async def initialize(self):
-        self.engine.initialize()
+        await self.engine.initialize()
 
     async def shutdown(self):
-        self.engine.shutdown()
+        await self.engine.shutdown()
 
     async def sync_gen(self, 
                        response_model: str | Dict | None = None,
@@ -31,18 +31,29 @@ class LLM():
                        ) -> str:
         if tools is not None and response_model is not None:
             raise ValueError("Cannot use both 'tools' and 'response_model' simultaneously.")
-        if not self.is_initialized:
-            await self.initialize()
-        return await self.engine.sync_gen(self.model_name, response_model, tools, messages, **kwargs)
+        
+        # Always reinitialize the engine before each call
+        await self.initialize()
+        
+        try:
+            return await self.engine.sync_gen(self.model_name, response_model, tools, messages, **kwargs)
+        finally:
+            # Ensure the engine is properly shut down after each call
+            await self.shutdown()
 
     async def async_gen(self, 
                      messages: List[Dict[str, Any]] = None,
                      **kwargs
                      ) -> AsyncIterator[str]:
-        if not self.is_initialized:
-            await self.initialize()
-        async for chunk in self.engine.async_gen(self.model_name, messages, **kwargs):
-            yield chunk
+        # Always reinitialize the engine before each call
+        await self.initialize()
+        
+        try:
+            async for chunk in self.engine.async_gen(self.model_name, messages, **kwargs):
+                yield chunk
+        finally:
+            # Ensure the engine is properly shut down after each call
+            await self.shutdown()
 
     @property
     def supported_tasks(self) -> List[str]:

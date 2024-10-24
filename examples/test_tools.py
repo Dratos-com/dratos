@@ -47,7 +47,7 @@ def tool(prompt):
 
     return agent.sync_gen({"text": prompt})
 
-#print(tool("What is 2 + 2?"))
+#tool("What is 2 + 2?")
 
 
 def use_multiple_tools(prompt):
@@ -77,4 +77,4 @@ def use_multiple_tools(prompt):
 
     return agent.sync_gen({"text": prompt})
 
-#print(use_multiple_tools("What is 2 + 2 and 3 * 3?"))
+#use_multiple_tools("What is 2 + 2 and 3 * 3?")

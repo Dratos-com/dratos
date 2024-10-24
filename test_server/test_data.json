@@ -713,5 +713,183 @@
       }
     },
     "system_fingerprint": "fp_7693ae462b"
+  },
+  "{\"messages\": [{\"content\": [{\"text\": \"Say hi in french\", \"type\": \"text\"}], \"role\": \"user\"}], \"model\": \"gpt-4o\", \"path\": \"chat/completions\", \"temperature\": 0}": {
+    "id": "chatcmpl-ALq5qoGivugLlhNUXy9sLez4lJ0ZB",
+    "object": "chat.completion",
+    "created": 1729768498,
+    "model": "gpt-4o-2024-08-06",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "Bonjour!",
+          "refusal": null
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 11,
+      "completion_tokens": 2,
+      "total_tokens": 13,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "completion_tokens_details": {
+        "reasoning_tokens": 0
+      }
+    },
+    "system_fingerprint": "fp_a7d06e42a7"
+  },
+  "{\"messages\": [{\"content\": [{\"text\": \"Say hi in french\", \"type\": \"text\"}], \"role\": \"user\"}], \"model\": \"gpt-4o\", \"path\": \"chat/completions\"}": {
+    "id": "chatcmpl-ALqIquGEoN8hrUSOjgBHEiPSnwp0C",
+    "object": "chat.completion",
+    "created": 1729769304,
+    "model": "gpt-4o-2024-08-06",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "Bonjour!",
+          "refusal": null
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 11,
+      "completion_tokens": 2,
+      "total_tokens": 13,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "completion_tokens_details": {
+        "reasoning_tokens": 0
+      }
+    },
+    "system_fingerprint": "fp_45c6de4934"
+  },
+  "{\"messages\": [{\"content\": [{\"text\": \"What is the capital of Canada?\", \"type\": \"text\"}], \"role\": \"user\"}], \"model\": \"gpt-4o-2024-08-06\", \"path\": \"chat/completions\", \"response_format\": {\"json_schema\": {\"name\": \"Capital\", \"schema\": {\"additionalProperties\": false, \"properties\": {\"capital\": {\"title\": \"Capital\", \"type\": \"string\"}, \"country\": {\"title\": \"Country\", \"type\": \"string\"}}, \"required\": [\"capital\", \"country\"], \"title\": \"Capital\", \"type\": \"object\"}, \"strict\": true}, \"type\": \"json_schema\"}, \"stream\": false}": {
+    "id": "chatcmpl-ALqIqYzmAi9xE0sZS2AwDjTXW9xM1",
+    "object": "chat.completion",
+    "created": 1729769304,
+    "model": "gpt-4o-2024-08-06",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "{\"capital\":\"Ottawa\",\"country\":\"Canada\"}",
+          "refusal": null
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 61,
+      "completion_tokens": 10,
+      "total_tokens": 71,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "completion_tokens_details": {
+        "reasoning_tokens": 0
+      }
+    },
+    "system_fingerprint": "fp_a7d06e42a7"
+  },
+  "{\"messages\": [{\"content\": [{\"text\": \"What is 2 + 2?\", \"type\": \"text\"}], \"role\": \"user\"}], \"model\": \"gpt-4o\", \"path\": \"chat/completions\", \"tool_choice\": \"auto\", \"tools\": [{\"function\": {\"description\": \"add definition.\", \"name\": \"add\", \"parameters\": {\"additionalProperties\": false, \"properties\": {\"arg1\": {\"description\": \"arg1 parameter.\", \"type\": \"integer\"}, \"arg2\": {\"description\": \"arg2 parameter.\", \"type\": \"integer\"}}, \"required\": [\"arg1\", \"arg2\"], \"type\": \"object\"}}, \"type\": \"function\"}]}": {
+    "id": "chatcmpl-ALqIr5wwGHBUclRCHW9ZfJg8xcGEk",
+    "object": "chat.completion",
+    "created": 1729769305,
+    "model": "gpt-4o-2024-08-06",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": null,
+          "tool_calls": [
+            {
+              "id": "call_kKyZlKiEq2Shaks9Q1hjheMV",
+              "type": "function",
+              "function": {
+                "name": "add",
+                "arguments": "{\"arg1\":2,\"arg2\":2}"
+              }
+            }
+          ],
+          "refusal": null
+        },
+        "logprobs": null,
+        "finish_reason": "tool_calls"
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 62,
+      "completion_tokens": 19,
+      "total_tokens": 81,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "completion_tokens_details": {
+        "reasoning_tokens": 0
+      }
+    },
+    "system_fingerprint": "fp_72bbfa6014"
+  },
+  "{\"messages\": [{\"content\": [{\"text\": \"What is 2 + 2 and 3 * 3?\", \"type\": \"text\"}], \"role\": \"user\"}], \"model\": \"gpt-4o\", \"path\": \"chat/completions\", \"tool_choice\": \"auto\", \"tools\": [{\"function\": {\"description\": \"add definition.\", \"name\": \"add\", \"parameters\": {\"additionalProperties\": false, \"properties\": {\"arg1\": {\"description\": \"arg1 parameter.\", \"type\": \"integer\"}, \"arg2\": {\"description\": \"arg2 parameter.\", \"type\": \"integer\"}}, \"required\": [\"arg1\", \"arg2\"], \"type\": \"object\"}}, \"type\": \"function\"}, {\"function\": {\"description\": \"multiply definition.\", \"name\": \"multiply\", \"parameters\": {\"additionalProperties\": false, \"properties\": {\"arg1\": {\"description\": \"arg1 parameter.\", \"type\": \"integer\"}, \"arg2\": {\"description\": \"arg2 parameter.\", \"type\": \"integer\"}}, \"required\": [\"arg1\", \"arg2\"], \"type\": \"object\"}}, \"type\": \"function\"}]}": {
+    "id": "chatcmpl-ALqItlrIBExsUQmd99VoNmhE6BoUJ",
+    "object": "chat.completion",
+    "created": 1729769307,
+    "model": "gpt-4o-2024-08-06",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": null,
+          "tool_calls": [
+            {
+              "id": "call_WDAmPaFNsAwCiR6AX7v0Sz5F",
+              "type": "function",
+              "function": {
+                "name": "add",
+                "arguments": "{\"arg1\": 2, \"arg2\": 2}"
+              }
+            },
+            {
+              "id": "call_zF2qS7NlfU8rVunv68KdlwXu",
+              "type": "function",
+              "function": {
+                "name": "multiply",
+                "arguments": "{\"arg1\": 3, \"arg2\": 3}"
+              }
+            }
+          ],
+          "refusal": null
+        },
+        "logprobs": null,
+        "finish_reason": "tool_calls"
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 99,
+      "completion_tokens": 54,
+      "total_tokens": 153,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "completion_tokens_details": {
+        "reasoning_tokens": 0
+      }
+    },
+    "system_fingerprint": "fp_a7d06e42a7"
   }
 }

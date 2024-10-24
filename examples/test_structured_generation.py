@@ -7,6 +7,18 @@ Generate a tool request using an LLM.
 Requirements:
 Add the folowing API key(s) in your .env file:
    - OPENAI_API_KEY
+
+
+BE AWARE:
+Using OpenAI built-in response_model support, only the following types are supported:
+String
+Number
+Boolean
+Object
+Array
+Enum
+anyOf
+This is in line with JSON data type support (which doesn’t have support for datetime).
 """
 
 ################### Adding Project Root to Python Path #############################
@@ -50,7 +62,7 @@ def structured_generation(prompt):
 
     return agent.sync_gen({"text": prompt})
 
-# print(structured_generation("What is the capital of Canada?"))
+# structured_generation("What is the capital of Canada?")
 
 
 def structured_generation_without_support(prompt):
@@ -80,4 +92,4 @@ def structured_generation_without_support(prompt):
 
     return agent.sync_gen({"text": prompt})
 
-# print(structured_generation_without_support("What is the capital of Canada?"))
+# structured_generation_without_support("What is the capital of Canada?")

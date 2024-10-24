@@ -10,7 +10,6 @@ from dratos.memory.mem0 import Memory
 import logging
 from rich.logging import RichHandler
 
-
 logging.basicConfig(
     level="INFO",
     format="%(message)s",
@@ -115,13 +114,12 @@ class Agent:
         import asyncio
 
         async def generate(prompt: str | Dict[str, Any]):
-            
             # Setup
             if self.memory:
                 prompt = self.get_context(prompt)
 
-            self.log_agent_info()
             self.record_message(prompt, role="Prompt")
+            self.log_agent_info()
 
             completion_setting = kwargs if kwargs else self.completion_setting
             tools = self.tool_definition()
@@ -152,12 +150,13 @@ class Agent:
 
             return response
 
+        # Use a new event loop for each call to sync_gen
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         try:
-            loop = asyncio.get_running_loop()
-            if loop.is_running():
-                return loop.run_until_complete(generate(prompt))
-        except RuntimeError:
-            return asyncio.run(generate(prompt))
+            return loop.run_until_complete(generate(prompt))
+        finally:
+            loop.close()
 
     async def async_gen(self, prompt: str | Dict[str, Any], **kwargs):
         
@@ -226,7 +225,7 @@ class Agent:
                 query = query["text"]
             # result = self.memory.search(query=query, agent_id=self.name)
             # related_memories = '\n'.join([f"{memory['created_at']} - {memory['memory']}" for memory in result])
-            results = self.memory.search(query, agent_id=self.name)
+            results = self.memory.search(query)
             related_memories = '\n'.join([f"{result['text']}" for result in results])
             return f"{query}\n\nMemory:\n{related_memories}"
         else:
