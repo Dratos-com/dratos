@@ -3,7 +3,7 @@ This module defines the base language model class and related classes.
 """
 
 from typing import Dict, List, AsyncIterator, Any
-from dratos.models.engines.base_adapter import BaseEngine
+from dratos.models.engines.base_engine import BaseEngine
 
 class LLM():
     def __init__(

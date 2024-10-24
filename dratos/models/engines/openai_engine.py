@@ -3,13 +3,14 @@ This module provides an OpenAI engine for generating text using the OpenAI API.
 """
 import os
 import json
-import inspect
+from urllib.parse import urlparse
 from typing import Dict, List, AsyncIterator, Any
 
-from openai import AsyncOpenAI, OpenAI
+
+from openai import AsyncOpenAI
 from pydantic import BaseModel
 
-from .base_adapter import BaseEngine
+from .base_engine import BaseEngine
 
 
 class OpenAI(BaseEngine):
@@ -127,34 +128,30 @@ class OpenAI(BaseEngine):
         if self.client:
             await self.client.close()
 
-    async def get_supported_models(self):
-        """
-        Get the supported models for the OpenAI engine.
-        """
-        if not self.client:
-            await self.initialize(self.config)
-        models = await self.client.models.list()
-        return [model.id for model in models.data]
-
-    def get_completion_setting(self, **kwargs):
-        """
-        Get the completion setting for the OpenAI engine.
-        """
-        if not self.client:
-            self.client = OpenAI(
-                api_key=self.api_key,
-                base_url=self.base_url
-            )
-        completion_args = inspect.signature(self.client.chat.completions.create).parameters.keys()
-        return list(completion_args)
-
     def format_messages(self, messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         formatted_messages = []
         for message in messages:
             if message["role"] == "System prompt":
                 formatted_messages.append({"role": "system", "content": message["content"]["text"]})
             elif message["role"] == "Prompt":
-                formatted_messages.append({"role": "user", "content": message["content"]["text"]})
+                content = [{"type": "text", "text": message["content"]["text"]}]
+                for key, value in message["content"].items():
+                    if key != "text" and (key.endswith(".png") or key.endswith(".jpg") or key.endswith(".jpeg") or key.endswith(".pdf")):
+                        if isinstance(value, str) and urlparse(value).scheme in ["http", "https", "ftp", "ftps", "data"]:
+                            content.append({
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": value
+                                }
+                            })
+                        else:
+                            content.append({
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/{key.split('.')[-1]};base64,{value}"
+                                }
+                            })
+                formatted_messages.append({"role": "user", "content": content})
             elif message["role"] == "Response":
                 formatted_messages.append({"role": "assistant", "content": message["content"]["text"]})
             elif message["role"] == "Tool call":
