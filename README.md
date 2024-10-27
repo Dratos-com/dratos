@@ -1,6 +1,7 @@
 
 # Install environement & dependencies
 
+>Python 3.12 or later
 ```
 poetry config virtualenvs.in-project true
 poetry install

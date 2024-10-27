@@ -12,9 +12,11 @@ openai = "^1.50.0"
 pydantic = "^2.9.2"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^8.3.3"
 tiktoken = "^0.8.0"
 rich = "^13.9.3"
+
+[tool.poetry.group.test.dependencies]
+pytest = "^8.3.3"
 flask = "^3.0.3"
 requests = "^2.32.3"
 
