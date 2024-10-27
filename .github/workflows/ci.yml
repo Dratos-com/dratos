@@ -24,6 +24,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install poetry
         poetry install --with test
+        pip install pytest
     - name: Run tests
       run: |
-        python3.12 -m pytest
+        python3 -m pytest
