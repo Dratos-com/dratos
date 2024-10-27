@@ -1,14 +1,15 @@
 openai==1.50.0
 pydantic==2.9.2
 
-# verbose
-#tiktoken==0.8.0
-#rich==13.9.3
+# testing (non-necessary for production)
+pytest==8.3.3
+flask==3.0.3
+requests==2.32.3
 
-# testing
-#pytest==8.3.3
-#flask==3.0.3
-#requests==2.32.3
+# verbose (non-necessary for production)
+tiktoken==0.8.0
+rich==13.9.3
 
-# Tracing & Observability
+
+# Tracing & Observability (non-necessary for production)
 # mlflow==2.17.0
