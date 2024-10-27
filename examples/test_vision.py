@@ -28,7 +28,7 @@ def vision(prompt: str):
     Generate a text completion for a given an image.
 
     >>> vision("What's the meme about? (very short answer)")
-    'The meme humorously contrasts a minor problem (a spider) with a dramatic consequence (a house fire), highlighting how people can downplay serious situations.'
+    'The meme humorously contrasts a minor issue (a spider) with a dramatic or chaotic background (a house on fire), suggesting that the speaker is downplaying a serious situation.'
     """
     llm = LLM(
         model_name="gpt-4o-mini", 
@@ -75,7 +75,7 @@ def vision_base64(prompt: str):
     Generate a text completion for a given an image.
 
     >>> vision_base64("What's the meme about? (very short answer)")
-    'The meme features a cat with a serious expression, humorously implying that it is giving a stern or official message, often used to convey seriousness in a lighthearted way.'
+    'The meme features a serious-looking cat and is about authority, often used humorously to convey sternness in a playful way.'
     """
     llm = LLM(
         model_name="gpt-4o-mini", 

@@ -1,21 +1,7 @@
 import json
-import torch
 import inspect
 from pydantic import BaseModel
-from typing import Callable, Dict, Any
-
-def get_device():
-    """
-    This module provides a function to determine the appropriate device for PyTorch based on the available backend.
-    """
-    if torch.backends.mps.is_available():
-        return torch.device("mps")
-    elif torch.backends.mps.is_built():
-        return torch.device("mps")
-    elif torch.backends.cuda.is_built():
-        return torch.device("cuda")
-    else:
-        return torch.device("cpu")
+from typing import Callable, Dict
 
 def extract_json_from_str(response: str):
     """

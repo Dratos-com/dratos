@@ -3,25 +3,40 @@ from typing import Dict, List, TYPE_CHECKING, Any
 # Only import Agent for type checking
 if TYPE_CHECKING:
     from dratos.core.agent import Agent
-
-import tiktoken
-import json
-
-from rich import print as rprint
-from rich.syntax import Syntax
-from rich.panel import Panel
-from rich.markdown import Markdown
-from rich.style import Style
-from rich.text import Text
-from rich.live import Live
-from rich.console import Console, Group
-
 from dratos.utils.utils import extract_json_from_str
 
 import logging
 
+all_packages_installed = True
+try:
+    import tiktoken
+    import json
+
+    from rich import print as rprint
+    from rich.syntax import Syntax
+    from rich.panel import Panel
+    from rich.markdown import Markdown
+    from rich.style import Style
+    from rich.text import Text
+    from rich.live import Live
+    from rich.console import Console, Group
+except ImportError:
+    all_packages_installed = False
+
+def get_tokens(agent: "Agent", text:str) -> int:
+    if not all_packages_installed:
+        return 0
+    try:
+        tokenizer = tiktoken.encoding_for_model(agent.llm.model_name)
+        tokens = len(tokenizer.encode(str(text)))
+
+    except KeyError:
+        tokenizer = tiktoken.encoding_for_model("gpt-4o")
+        tokens = len(tokenizer.encode(str(text)))
+    return tokens
+
 def pretty(agent: "Agent", message: Dict[str, Any], title: str):
-    if not agent.verbose:
+    if not agent.verbose or not all_packages_installed:
         return
     if title == "Response":
         color = "green"
@@ -32,15 +47,7 @@ def pretty(agent: "Agent", message: Dict[str, Any], title: str):
     else:
         color = "dark_orange3"
 
-    tokens = None
-    
-    try:
-        tokenizer = tiktoken.encoding_for_model(agent.llm.model_name)
-        tokens = len(tokenizer.encode(str(message["text"])))
-
-    except KeyError:
-        tokenizer = tiktoken.encoding_for_model("gpt-4o")
-    
+    tokens = get_tokens(agent, message["text"])
     title = f"{agent.name}: {title} ({tokens} tokens)" if tokens else f"{agent.name}: {title}"
 
     if agent.markdown_response:
@@ -68,11 +75,6 @@ def pretty(agent: "Agent", message: Dict[str, Any], title: str):
     logging.info(f"Document(s): {documents}") if documents else None
 
 async def pretty_stream(agent: "Agent", messages: List[Dict[str, Any]], completion_setting: Dict):
-    console = Console()
-    try:
-        tokenizer = tiktoken.encoding_for_model(agent.llm.model_name)
-    except KeyError:
-        tokenizer = tiktoken.encoding_for_model("gpt-4o")
     
     async def stream():
         response = ""
@@ -81,14 +83,15 @@ async def pretty_stream(agent: "Agent", messages: List[Dict[str, Any]], completi
                                 messages=messages, 
                                 **completion_setting):
             response += chunk
-            tokens += len(tokenizer.encode(chunk))
+            tokens += get_tokens(agent, chunk)
             yield chunk, tokens, response
     
-    if agent.verbose:
+    if agent.verbose and all_packages_installed:
+        console = Console()
         with Live(console=console, refresh_per_second=4) as live:
             async for chunk, tokens, response in stream():
                 live.update(
-                        Panel(
+                    Panel(
                         Markdown(str(response)) if agent.markdown_response else str(response),
                         title=f"Response ({tokens} tokens)",
                         title_align="left",

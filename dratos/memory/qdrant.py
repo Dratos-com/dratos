@@ -1,6 +1,6 @@
-from qdrant_client import QdrantClient
-from qdrant_client.http import models
-from sentence_transformers import SentenceTransformer
+#from qdrant_client import QdrantClient
+#from qdrant_client.http import models
+#from sentence_transformers import SentenceTransformer
 from typing import List, Dict, Any
 
 class QdrantMemory:

@@ -29,6 +29,11 @@ pytest -v --doctest-modules examples/test*
 ```
 - Add `-s` flag captures all the output
 
+Pytest sometimes run a different python version, when so, use this to run pytest
+```bash
+python3 -m pytest
+```
+
 ## Writing Tests
 
 - **Location:** All test files go in the `examples` folder. Files must start with `test_` so PyTest knows what’s up.

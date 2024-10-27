@@ -1,8 +1,8 @@
 
-from mem0 import Memory as Mem0Memory
+# from mem0 import Memory as Mem0Memory
 
 
-class Memory(Mem0Memory):
+class Memory(): #Mem0Memory
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 

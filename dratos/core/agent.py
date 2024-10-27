@@ -8,15 +8,28 @@ from dratos.utils.pretty import pretty, pretty_stream
 from dratos.memory.mem0 import Memory
 
 import logging
-from rich.logging import RichHandler
 
-logging.basicConfig(
-    level="INFO",
+rich = False
+try:
+    from rich.logging import RichHandler
+except ImportError:
+    rich = False
+
+if not rich:
+    logging.basicConfig(
+        level="INFO",
+        format="%(message)s",
+        datefmt="[%X]"
+    )
+    logger = logging.getLogger("default")
+else:
+    logging.basicConfig(
+        level="INFO",
     format="%(message)s",
     datefmt="[%X]",
     handlers=[RichHandler()]
-)
-logger = logging.getLogger("rich")
+    )
+    logger = logging.getLogger("rich")
 
 
 class Agent:
