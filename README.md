@@ -30,7 +30,7 @@ pytest -v --doctest-modules examples/test*
 ```
 - Add `-s` flag captures all the output
 
-Pytest sometimes run a different python version, when so, use this to run pytest
+Ensure the correct Python interpreter is being used:
 ```bash
 python3 -m pytest
 ```

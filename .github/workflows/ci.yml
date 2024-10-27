@@ -26,4 +26,4 @@ jobs:
         poetry install --with test
     - name: Run tests
       run: |
-        pytest
+        python3.12 -m pytest
