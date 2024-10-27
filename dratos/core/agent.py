@@ -9,7 +9,7 @@ from dratos.memory.mem0 import Memory
 
 import logging
 
-rich = False
+rich = True
 try:
     from rich.logging import RichHandler
 except ImportError:
