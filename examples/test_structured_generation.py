@@ -32,7 +32,7 @@ sys.path.append(project_root)
 ################### Adding Project Root to Python Path #############################
 
 from dratos import LLM, Agent
-from dratos import OpenAI
+from dratos import OpenAIEngine
 
 from pydantic import BaseModel
 
@@ -45,7 +45,7 @@ def structured_generation(prompt):
     """
     llm = LLM(
         model_name="gpt-4o-2024-08-06", 
-        engine=OpenAI(),
+        engine=OpenAIEngine(),
     )
 
     class Capital(BaseModel):

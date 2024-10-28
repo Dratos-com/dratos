@@ -124,53 +124,42 @@ class Agent:
             raise e
     
     def sync_gen(self, prompt: str | Dict[str, Any], **kwargs):
-        import asyncio
+        # Setup
+        if self.memory:
+            prompt = self.get_context(prompt)
 
-        async def generate(prompt: str | Dict[str, Any]):
-            # Setup
-            if self.memory:
-                prompt = self.get_context(prompt)
+        self.record_message(prompt, role="Prompt")
+        self.log_agent_info()
 
-            self.record_message(prompt, role="Prompt")
-            self.log_agent_info()
+        completion_setting = kwargs if kwargs else self.completion_setting
+        tools = self.tool_definition()
 
-            completion_setting = kwargs if kwargs else self.completion_setting
-            tools = self.tool_definition()
+        # Generation
+        response = self.llm.sync_gen(
+            response_model=self.response_model,
+            tools=tools,
+            messages=self.get_messages(),
+            **completion_setting)
 
-            # Generation
-            response = await self.llm.sync_gen(
-                response_model=self.response_model,
-                tools=tools,
-                messages=self.get_messages(),
-                **completion_setting)
+        # Tool calling
+        if self.tools and not isinstance(response, str):
+            complete_result = dict()
+            for tool_call in response:
+                for tool in self.tools:
+                    if tool.__name__ == tool_call["name"]:
+                        result = tool(**tool_call["arguments"])
+                        complete_result.update({tool_call["name"]: result})
+            self.record_message(complete_result, role="Response")
+            return complete_result
+        else:
+            self.record_message(response, role="Response")
 
-            # Tool calling
-            if self.tools and not isinstance(response, str):
-                complete_result = dict()
-                for tool_call in response:
-                    for tool in self.tools:
-                        if tool.__name__ == tool_call["name"]:
-                            result = tool(**tool_call["arguments"])
-                            complete_result.update({tool_call["name"]: result})
-                self.record_message(complete_result, role="Response")
-                return complete_result
-            else:
-                self.record_message(response, role="Response")
+        # Validation
+        if self.response_validation:
+            response = self.pydantic_validation(response)
 
-            # Validation
-            if self.response_validation:
-                response = self.pydantic_validation(response)
-
-            return response
-
-        # Use a new event loop for each call to sync_gen
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            return loop.run_until_complete(generate(prompt))
-        finally:
-            loop.close()
-
+        return response
+    
     async def async_gen(self, prompt: str | Dict[str, Any], **kwargs):
         
         # Setup

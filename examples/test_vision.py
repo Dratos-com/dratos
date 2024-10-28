@@ -20,7 +20,7 @@ sys.path.append(project_root)
 ################### Adding Project Root to Python Path #############################
 
 from dratos import LLM, Agent
-from dratos import OpenAI
+from dratos import OpenAIEngine
 
 
 def vision(prompt: str):
@@ -32,7 +32,7 @@ def vision(prompt: str):
     """
     llm = LLM(
         model_name="gpt-4o-mini", 
-        engine=OpenAI(),
+        engine=OpenAIEngine(),
     )
 
     agent = Agent(
@@ -54,7 +54,7 @@ def vision2(prompt: str):
     """
     llm = LLM(
         model_name="gpt-4o-mini", 
-        engine=OpenAI(),
+        engine=OpenAIEngine(),
     )
 
     agent = Agent(
@@ -79,7 +79,7 @@ def vision_base64(prompt: str):
     """
     llm = LLM(
         model_name="gpt-4o-mini", 
-        engine=OpenAI(),
+        engine=OpenAIEngine(),
     )
 
     agent = Agent(

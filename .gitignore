@@ -11,9 +11,6 @@ shared_env.json
 
 qdrant_storage/
 mlartifacts/
-playground/
-credentials.json
-token.json
 poetry.lock
 mlruns/
 

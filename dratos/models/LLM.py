@@ -17,13 +17,13 @@ class LLM():
         self.support_tools = engine.support_tools(model_name)
         self.support_structured_output = engine.support_structured_output(model_name)
 
-    async def initialize(self):
-        await self.engine.initialize()
+    def initialize(self, asynchronous: bool = False):
+        self.engine.initialize(asynchronous=asynchronous)
 
-    async def shutdown(self):
-        await self.engine.shutdown()
+    def shutdown(self):
+        self.engine.shutdown()
 
-    async def sync_gen(self, 
+    def sync_gen(self, 
                        response_model: str | Dict | None = None,
                        tools: List[Dict] = None,
                        messages: List[Dict[str, Any]] = None,
@@ -33,20 +33,20 @@ class LLM():
             raise ValueError("Cannot use both 'tools' and 'response_model' simultaneously.")
         
         # Always reinitialize the engine before each call
-        await self.initialize()
+        self.initialize(asynchronous=False)
         
         try:
-            return await self.engine.sync_gen(self.model_name, response_model, tools, messages, **kwargs)
+            return self.engine.sync_gen(self.model_name, response_model, tools, messages, **kwargs)
         finally:
             # Ensure the engine is properly shut down after each call
-            await self.shutdown()
+            self.shutdown()
 
     async def async_gen(self, 
                      messages: List[Dict[str, Any]] = None,
                      **kwargs
                      ) -> AsyncIterator[str]:
         # Always reinitialize the engine before each call
-        await self.initialize()
+        await self.initialize(asynchronous=True)
         
         try:
             async for chunk in self.engine.async_gen(self.model_name, messages, **kwargs):

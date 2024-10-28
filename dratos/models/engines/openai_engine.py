@@ -7,13 +7,13 @@ from urllib.parse import urlparse
 from typing import Dict, List, AsyncIterator, Any
 
 
-from openai import AsyncOpenAI
+from openai import OpenAI, AsyncOpenAI
 from pydantic import BaseModel
 
 from .base_engine import BaseEngine
 
 
-class OpenAI(BaseEngine):
+class OpenAIEngine(BaseEngine):
     """
     OpenAI is a class that wraps the OpenAI API.
     """
@@ -27,26 +27,30 @@ class OpenAI(BaseEngine):
 
         super().__init__(engine="OPENAI")
         
-        self.client = None
-
-    async def initialize(self) -> None:
+    def initialize(self, asynchronous: bool = False) -> None:
         """
         Initialize the OpenAI engine with the given configuration.
         """
-        self.client = AsyncOpenAI(
-            api_key=self.api_key,
-            base_url=self.base_url
-        )
+        if asynchronous:
+            self.client = AsyncOpenAI(
+                api_key=self.api_key,
+                base_url=self.base_url
+            )
+        else:
+            self.client = OpenAI(
+                api_key=self.api_key,
+                base_url=self.base_url
+            )
 
-    async def shutdown(self) -> None:
+    def shutdown(self) -> None:
         """
         Shutdown the OpenAI engine.
         """
         if self.client:
-            await self.client.close()
+            self.client.close()
             self.client = None
 
-    async def sync_gen(
+    def sync_gen(
         self,
         model_name: str = "gpt-4o",
         response_model: BaseModel | None = None,
@@ -58,20 +62,20 @@ class OpenAI(BaseEngine):
         Generate text from the OpenAI engine.
         """
         if not self.client:
-            await self.initialize()
+            self.initialize(asynchronous=False)
 
         messages = self.format_messages(messages)
 
         if response_model is not None:
             if model_name.startswith("gpt-4o-"):
-                response = await self.client.beta.chat.completions.parse(
+                response = self.client.beta.chat.completions.parse(
                     model=model_name,
                     messages=messages,
                     response_format=response_model,
                     **kwargs,
                 )
             else:
-                response =  await self.client.chat.completions.create(
+                response =  self.client.chat.completions.create(
                         model=model_name,
                         messages=messages,
                         response_format={"type": "json_object"},
@@ -79,7 +83,7 @@ class OpenAI(BaseEngine):
                         **kwargs,
                     )
         elif tools is not None:
-            response =  await self.client.chat.completions.create(
+            response =  self.client.chat.completions.create(
                     model=model_name,
                     messages=messages,
                     tools=tools,
@@ -87,7 +91,7 @@ class OpenAI(BaseEngine):
                     **kwargs,
                 )
         else:
-            response = await self.client.chat.completions.create(
+            response = self.client.chat.completions.create(
                 model=model_name,
                 messages=messages,
                 **kwargs,
@@ -114,7 +118,7 @@ class OpenAI(BaseEngine):
     ) -> AsyncIterator[str]:
         
         if not self.client:
-            await self.initialize()
+            self.initialize(asynchronous=True)
 
         messages = self.format_messages(messages)
 
