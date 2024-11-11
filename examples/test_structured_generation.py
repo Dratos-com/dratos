@@ -75,7 +75,7 @@ def structured_generation_without_support(prompt):
 
     llm_without_structured_generation_support = LLM(
         model_name="gpt-4o", 
-        engine=OpenAI(),
+        engine=OpenAIEngine(),
     )
     
     class Capital(BaseModel):
