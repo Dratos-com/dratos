@@ -37,6 +37,8 @@ def get_tokens(agent: "Agent", text:str) -> int:
 
 def pretty(agent: "Agent", message: Dict[str, Any], title: str):
     if not agent.verbose or not all_packages_installed:
+        if agent.verbose:
+            logging.info(f"tiktoken and rich libraries are required to see verbose output.")
         return
     if title == "Response":
         color = "green"
