@@ -9,7 +9,7 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.10"
 openai = "^1.50.0"
-pydantic = "^2.7.2" # "^2.9.2"
+pydantic = "^2.9.2"
 
 [tool.poetry.group.dev.dependencies]
 tiktoken = "^0.8.0"
