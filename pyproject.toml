@@ -1,13 +1,13 @@
 [tool.poetry]
 name = "dratos"
-version = "0.1.1"
+version = "0.1.2"
 description = ""
 authors = ["Nicolas Nahas <45595586+nicorne@users.noreply.github.com>"]
 license = "GNU"
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.12"
+python = "^3.10"
 openai = "^1.50.0"
 pydantic = "^2.9.2"
 
