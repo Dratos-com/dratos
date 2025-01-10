@@ -2,6 +2,7 @@
 .env
 service_account_credentials.json
 .secrets.yaml
+.history
 
 .vscode
 .cursorignore
