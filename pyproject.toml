@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "dratos"
-version = "0.1.4"
+version = "0.1.5"
 description = ""
 authors = ["Nicolas Nahas <45595586+nicorne@users.noreply.github.com>"]
 license = "GNU"
