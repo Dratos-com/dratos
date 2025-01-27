@@ -67,6 +67,32 @@ def function_to_openai_definition(tool: Callable) -> Dict:
         }
     }
 
+def _pydantic_to_openai_schema(schema: dict) -> dict:
+    """Convert Pydantic schema to OpenAI schema."""
+    openai_schema = {
+        "properties": schema.get("properties", {}),
+    }
+    if "required" in schema:
+        openai_schema["required"] = schema["required"]
+    if "description" in schema:
+        openai_schema["description"] = schema["description"]
+    if schema["type"] == "object":
+        for prop, details in openai_schema["properties"].items():
+            if "allOf" in details:
+                openai_schema["properties"][prop] = _pydantic_to_openai_schema(
+                    details["allOf"][0]
+                )
+            elif details.get("type") == "array" and "items" in details:
+                openai_schema["properties"][prop]["items"] = _pydantic_to_openai_schema(
+                    details["items"]
+                )
+    
+    # Add pattern if it exists
+    if "pattern" in schema:
+        openai_schema["pattern"] = schema["pattern"]
+
+    return openai_schema
+
 def pydantic_to_openai_definition(model: type[BaseModel]) -> dict:
     """Convert Pydantic schema to OpenAI schema."""
 
