@@ -80,3 +80,9 @@ To stop Qdrant, you can use Ctrl+C in the terminal where it's running, or stop u
 ```bash
 docker stop <container_id>
 ```
+
+
+# Ollama parallel requests
+```bash
+OLLAMA_NUM_PARALLEL=4 ollama serve
+```

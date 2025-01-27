@@ -3,6 +3,8 @@ This module defines the base language model class and related classes.
 """
 
 from typing import Dict, List, AsyncIterator, Any
+import asyncio
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from dratos.models.engines.base_engine import BaseEngine
 
 class LLM():
@@ -24,33 +26,48 @@ class LLM():
         self.engine.shutdown()
 
     def sync_gen(self, 
-                       response_model: str | Dict | None = None,
-                       tools: List[Dict] = None,
-                       messages: List[Dict[str, Any]] = None,
-                       **kwargs
-                       ) -> str:
+                response_model: str | Dict | None = None,
+                tools: List[Dict] = None,
+                messages: List[Dict[str, Any]] = None,
+                timeout: float = 30.0,
+                **kwargs
+                ) -> str:
         if tools is not None and response_model is not None:
             raise ValueError("Cannot use both 'tools' and 'response_model' simultaneously.")
         
         # Always reinitialize the engine before each call
         self.initialize(asynchronous=False)
         
-        try:
+        def call_engine():
             return self.engine.sync_gen(self.model_name, response_model, tools, messages, **kwargs)
+        
+        try:
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(call_engine)
+                return future.result(timeout=timeout)
+        except TimeoutError:
+            raise TimeoutError(f"LLM response timed out after {timeout} seconds")
         finally:
             # Ensure the engine is properly shut down after each call
             self.shutdown()
 
     async def async_gen(self, 
                      messages: List[Dict[str, Any]] = None,
+                     timeout: float = 30.0,
                      **kwargs
                      ) -> AsyncIterator[str]:
         # Always reinitialize the engine before each call
         await self.initialize(asynchronous=True)
         
         try:
-            async for chunk in self.engine.async_gen(self.model_name, messages, **kwargs):
+            async def process_stream():
+                async for chunk in self.engine.async_gen(self.model_name, messages, **kwargs):
+                    yield chunk
+            
+            async for chunk in asyncio.wait_for(process_stream(), timeout=timeout):
                 yield chunk
+        except asyncio.TimeoutError:
+            raise TimeoutError(f"LLM response timed out after {timeout} seconds")
         finally:
             # Ensure the engine is properly shut down after each call
             await self.shutdown()
