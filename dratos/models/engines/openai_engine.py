@@ -78,8 +78,6 @@ class OpenAIEngine(BaseEngine):
                 response =  self.client.chat.completions.create(
                         model=model_name,
                         messages=messages,
-                        response_format={"type": "json_object"},
-
                         **kwargs,
                     )
         elif tools is not None:
