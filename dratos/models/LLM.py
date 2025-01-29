@@ -29,7 +29,7 @@ class LLM():
                 response_model: str | Dict | None = None,
                 tools: List[Dict] = None,
                 messages: List[Dict[str, Any]] = None,
-                timeout: float = 30.0,
+                timeout: float = 60.0,
                 **kwargs
                 ) -> str:
         if tools is not None and response_model is not None:
