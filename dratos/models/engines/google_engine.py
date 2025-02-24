@@ -22,6 +22,8 @@ class GoogleEngine(BaseEngine):
     """
     Class that wraps the Google vertex AI API for gemini use.
     """
+    genai = None
+    types = None
     def __init__(
         self,
         credentials_path: str = os.getenv("GOOGLE_APPLICATION_CREDENTIALS"),
@@ -33,6 +35,8 @@ class GoogleEngine(BaseEngine):
             from google.oauth2 import service_account
             from google import genai
             from google.genai import types
+            GoogleEngine.genai = genai
+            GoogleEngine.types = types
         except ImportError:
             raise ImportError("google-genai and google-auth are required for GoogleEngine.")
 
@@ -51,7 +55,7 @@ class GoogleEngine(BaseEngine):
         Initialize the OpenAI engine with the given configuration.
         """
 
-        self.client = genai.Client( 
+        self.client = GoogleEngine.genai.Client( 
                             credentials=self.credentials,
                             project=self.project_id,
                             location=self.region,
@@ -162,6 +166,8 @@ class GoogleEngine(BaseEngine):
             UnsupportedFeatureError: When encountering unsupported message types
             ValueError: For unknown message roles or invalid formats
         """
+        types = GoogleEngine.types
+        
         formatted_messages = []
         system_prompt = None
         

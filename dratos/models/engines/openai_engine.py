@@ -15,17 +15,14 @@ class OpenAIEngine(BaseEngine):
     """
     OpenAI is a class that wraps the OpenAI API.
     """
+    OpenAI = None
+    AsyncOpenAI = None
+
     def __init__(
         self,
         api_key: str = os.getenv("OPENAI_API_KEY"),
         base_url: str = "https://api.openai.com/v1"
     ):
-        
-        try:
-            from openai import OpenAI, AsyncOpenAI
-        except ImportError:
-            raise ImportError("openai is required for OpenAIEngine.")
-
         self.api_key = api_key
         self.base_url = base_url
 
@@ -35,13 +32,21 @@ class OpenAIEngine(BaseEngine):
         """
         Initialize the OpenAI engine with the given configuration.
         """
+
+        try:
+            from openai import OpenAI, AsyncOpenAI
+            OpenAIEngine.OpenAI = OpenAI
+            OpenAIEngine.AsyncOpenAI = AsyncOpenAI
+        except ImportError:
+            raise ImportError("openai is required for OpenAIEngine.")
+
         if asynchronous:
-            self.client = AsyncOpenAI(
+            self.client = OpenAIEngine.AsyncOpenAI(
                 api_key=self.api_key,
                 base_url=self.base_url
             )
         else:
-            self.client = OpenAI(
+            self.client = OpenAIEngine.OpenAI(
                 api_key=self.api_key,
                 base_url=self.base_url
             )
