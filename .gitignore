@@ -3,6 +3,7 @@
 service_account_credentials.json
 .secrets.yaml
 .history
+credentials.json
 
 .vscode
 .cursorignore

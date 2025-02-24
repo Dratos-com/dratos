@@ -57,20 +57,24 @@ class LLM():
                      **kwargs
                      ) -> AsyncIterator[str]:
         # Always reinitialize the engine before each call
-        await self.initialize(asynchronous=True)
+        self.initialize(asynchronous=True)
         
         try:
             async def process_stream():
                 async for chunk in self.engine.async_gen(self.model_name, messages, **kwargs):
                     yield chunk
             
-            async for chunk in asyncio.wait_for(process_stream(), timeout=timeout):
-                yield chunk
+            # Create the stream processor
+            stream_processor = process_stream()
+            # Wrap it in wait_for and await the result
+            async with asyncio.timeout(timeout):
+                async for chunk in stream_processor:
+                    yield chunk
         except asyncio.TimeoutError:
             raise TimeoutError(f"LLM response timed out after {timeout} seconds")
         finally:
             # Ensure the engine is properly shut down after each call
-            await self.shutdown()
+            self.shutdown()
 
     @property
     def supported_tasks(self) -> List[str]:

@@ -1,16 +1,22 @@
-openai==1.50.0
-httpx==0.27.2 # openai dependency, getting an error with the latest version
-pydantic==2.9.2
+# openai
+# openai==1.50.0
+# httpx==0.27.2 # openai dependency, getting an error with the latest version
 
-# testing (non-necessary for production)
+# gemini
+# google-genai==1.2.0
+
+# for structured output generation
+pydantic==2.9.2 
+
+# testing (for contributors)
 pytest==8.3.3
 flask==3.0.3
 requests==2.32.3
 
-# verbose (non-necessary for production)
+# pretty console output (non-necessary for production)
 tiktoken==0.8.0
 rich==13.9.3
 
 
-# Tracing & Observability (non-necessary for production)
+# Tracing & Observability (non-necessary)
 # mlflow==2.17.0

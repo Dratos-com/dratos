@@ -20,7 +20,30 @@ sys.path.append(project_root)
 ################### Adding Project Root to Python Path #############################
 
 from dratos import LLM, Agent
-from dratos import OpenAIEngine
+from dratos import OpenAIEngine, GoogleEngine
+
+
+# def document(prompt: str):
+#     """
+#     Generate a text completion for a given a document.
+
+#     >>> document("What's the document about? (very short answer)")
+#     'The document is a paper about the future of AI.'
+#     """
+#     llm = LLM(
+#         model_name="gemini-2.0-flash-001", 
+#         engine=GoogleEngine(),
+#     )
+
+#     agent = Agent(
+#         name="agent",
+#         llm=llm,
+#         verbose=True,
+#     )
+
+#     return agent.sync_gen({"text": prompt, "document.pdf": "https://proceedings.neurips.cc/paper_files/paper/2017/file/3f5ee243547dee91fbd053c1c4a845aa-Paper.pdf"})
+
+# document("What's the document about?")
 
 
 def vision(prompt: str):
