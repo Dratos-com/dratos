@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "dratos"
-version = "0.1.9"
+version = "0.2.O"
 description = ""
 authors = ["Nicolas Nahas <45595586+nicorne@users.noreply.github.com>"]
 license = "GNU"
@@ -8,8 +8,11 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.10"
-openai = "1.55.3"
 pydantic = "^2.9.2"
+
+[tool.poetry.group.optional.dependencies]
+openai = "1.55.3"
+google-genai = "1.2.0"
 
 [tool.poetry.group.dev.dependencies]
 tiktoken = "^0.8.0"
