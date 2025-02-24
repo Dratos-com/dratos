@@ -6,8 +6,6 @@ import json
 from urllib.parse import urlparse
 from typing import Dict, List, AsyncIterator, Any
 
-
-from openai import OpenAI, AsyncOpenAI
 from pydantic import BaseModel
 
 from .base_engine import BaseEngine
@@ -22,6 +20,12 @@ class OpenAIEngine(BaseEngine):
         api_key: str = os.getenv("OPENAI_API_KEY"),
         base_url: str = "https://api.openai.com/v1"
     ):
+        
+        try:
+            from openai import OpenAI, AsyncOpenAI
+        except ImportError:
+            raise ImportError("openai is required for OpenAIEngine.")
+
         self.api_key = api_key
         self.base_url = base_url
 

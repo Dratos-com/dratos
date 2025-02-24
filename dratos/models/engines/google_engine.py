@@ -8,11 +8,6 @@ from typing import Dict, List, AsyncIterator, Any, Tuple
 import base64
 import logging
 
-from google.oauth2 import service_account
-from google import genai
-from google.genai import types
-
-
 from pydantic import BaseModel
 
 from .base_engine import BaseEngine
@@ -33,6 +28,14 @@ class GoogleEngine(BaseEngine):
         project_id: str = os.getenv("GOOGLE_CLOUD_PROJECT"),
         region: str = os.getenv("GOOGLE_CLOUD_REGION"),
     ):
+        
+        try:
+            from google.oauth2 import service_account
+            from google import genai
+            from google.genai import types
+        except ImportError:
+            raise ImportError("google-genai and google-auth are required for GoogleEngine.")
+
         self.credentials = service_account.Credentials.from_service_account_file(
             credentials_path,
                 scopes=["https://www.googleapis.com/auth/cloud-platform"]
