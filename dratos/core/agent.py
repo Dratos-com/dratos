@@ -61,6 +61,7 @@ class Agent:
         self.response_model = response_model
         self.response_schema = response_schema
         self.response_validation = response_validation
+        self.json_response = json_response
         self.markdown_response = markdown_response
         self.verbose = verbose
         self.system_prompt = system_prompt
