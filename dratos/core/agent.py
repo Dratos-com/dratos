@@ -4,6 +4,8 @@ from dratos.models.LLM import LLM
 from pydantic import BaseModel
 
 from dratos.utils.utils import function_to_openai_definition, pydantic_to_openai_definition, extract_json_from_str
+from dratos.utils.schema_utils import validate_schema, create_model_from_schema
+
 from dratos.utils.pretty import pretty, pretty_stream
 from dratos.memory.mem0 import Memory
 
@@ -45,6 +47,7 @@ class Agent:
             tools: List[Dict] = None,
             markdown_response: bool = False,
             response_model: BaseModel = None,
+            response_schema: Dict = None,
             response_validation: bool = False, # only with reponse_model
             completion_setting: Dict = {},
         ):
@@ -55,6 +58,7 @@ class Agent:
         self.history = history
         self.tools = tools
         self.response_model = response_model
+        self.response_schema = response_schema
         self.response_validation = response_validation
         self.markdown_response = markdown_response
         self.verbose = verbose
@@ -68,9 +72,23 @@ class Agent:
         if tools is not None and response_model is not None:
             raise ValueError("Cannot use both 'tools' and 'response_model'.")
         
+        if tools is not None and response_schema is not None:
+            raise ValueError("Cannot use both 'tools' and 'response_schema'.")
+    
+        if response_model is not None and response_schema is not None:
+            raise ValueError("Cannot use both 'response_model' and 'response_schema'.")
+        
         if response_validation:
-            if response_model is None:
-                raise ValueError("A response can only be validated if a `response_model` is provided.")
+            if response_model is None and response_schema is None:
+                raise ValueError("A response can only be validated if a `response_model` or `response_schema` is provided.")
+            
+        if response_schema:
+            try:
+                validate_schema(response_schema)
+                self.response_model = create_model_from_schema(response_schema)
+            except Exception as e:
+                logger.error(f"❌ Response schema is not valid: {e}")
+                raise e
 
         if memory:
             self.memory = memory

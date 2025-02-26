@@ -3,7 +3,8 @@ import inspect
 from pydantic import BaseModel
 from typing import Callable, Dict
 
-def extract_json_from_str(response: str):
+
+def extract_json_from_str(response: str) -> tuple[dict, str, str]:
     """
     Extracts a JSON object from a string.
 
