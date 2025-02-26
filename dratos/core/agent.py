@@ -48,7 +48,8 @@ class Agent:
             markdown_response: bool = False,
             response_model: BaseModel = None,
             response_schema: Dict = None,
-            response_validation: bool = False, # only with reponse_model
+            response_validation: bool = False, # only with reponse_model or response_schema
+            json_response: bool = False, # only with reponse_model or response_schema
             completion_setting: Dict = {},
         ):
         self.name = name
@@ -176,6 +177,8 @@ class Agent:
         if self.response_validation:
             response = self.pydantic_validation(response)
 
+        if self.json_response:
+            response, _, _ = extract_json_from_str(response)
         return response
     
     async def async_gen(self, prompt: str | Dict[str, Any], **kwargs):

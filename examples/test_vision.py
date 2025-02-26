@@ -41,9 +41,13 @@ from dratos import OpenAIEngine, GoogleEngine
 #         verbose=True,
 #     )
 
-#     return agent.sync_gen({"text": prompt, "document.pdf": "https://proceedings.neurips.cc/paper_files/paper/2017/file/3f5ee243547dee91fbd053c1c4a845aa-Paper.pdf"})
+#     return agent.sync_gen({"text": prompt, 
+#                            "document_1.pdf": "https://proceedings.neurips.cc/paper_files/paper/2017/file/3f5ee243547dee91fbd053c1c4a845aa-Paper.pdf",
+#                            "document_2.pdf": "https://www.osureunion.fr/wp-content/uploads/2022/03/pdf-exemple.pdf"
+#                            }
+#                         )
 
-# document("What's the document about?")
+# document("What are the documents about? (very short answer) Also please specify the file names.")
 
 
 def vision(prompt: str):
