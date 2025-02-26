@@ -138,10 +138,7 @@ class Agent:
         try:
             model = self.response_model.__pydantic_validator__.validate_json(parameters, strict=True)
             logger.info(f"✅ Response format is valid")
-            if self.json_response:
-                return parsed_json
-            else:
-                return model
+            return model
         except Exception as e:
             logger.error(f"❌ Response format is not valid: {e}")
             raise e
@@ -180,6 +177,10 @@ class Agent:
         # Validation
         if self.response_validation:
             response = self.pydantic_validation(response)
+
+        # Json response
+        if self.json_response:
+            response, _, _ = extract_json_from_str(response)
 
         return response
     
