@@ -1,8 +1,8 @@
 from enum import Enum
-from pydantic import BaseModel, ValidationError
-from typing import Dict, Any, Optional, List, Type
+from pydantic import BaseModel, ValidationError, Field
+from typing import Dict, Any, Optional, List, Type, Union
 from pydantic.main import create_model
-from pydantic import Field
+
 
 class SchemaType(str, Enum):
     """Enum for schema data types."""
@@ -114,111 +114,109 @@ def create_model_from_schema(schema: dict) -> Type[BaseModel]:
         A dynamically created Pydantic BaseModel class
         
     Raises:
-        ValueError: If an unsupported schema field is encountered
+        ValueError: If the schema contains unsupported fields or structures
     """
     # Validate the schema first
     validate_schema(schema)
     
-    # Track which fields are supported
+    # Track unsupported fields that are used in the schema
+    unsupported_fields = set()
     supported_fields = {
-        "type", "title", "items", "properties", "required",
-        "min_items", "max_items", "min_length", "max_length",
-        "minimum", "maximum", "pattern", "enum", "default",
-        "nullable", "format", "description", "any_of",
-        "min_properties", "max_properties", "example", "property_ordering"
+        'type', 'title', 'items', 'properties', 'required',
+        'description', 'enum', 'default', 'minimum', 'maximum',
+        'min_length', 'max_length', 'pattern', 'min_items', 'max_items',
+        'nullable', 'format', 'any_of'
     }
-    
-    # Check for unsupported fields
-    def check_unsupported_fields(schema_def):
-        for field in schema_def:
-            if field not in supported_fields:
-                raise ValueError(f"Unsupported schema field: {field}")
-    
-    check_unsupported_fields(schema)
     
     # Model cache to handle nested models
     model_cache = {}
     
     def process_schema(schema_def, is_required=True):
-        """Process a schema definition and return the appropriate Python type with constraints"""
-        check_unsupported_fields(schema_def)
-        schema_type = schema_def.get("type")
+        """Process a schema definition and return the appropriate Python type and field constraints"""
+        # Check for unsupported fields
+        for field in schema_def:
+            if field not in supported_fields:
+                unsupported_fields.add(field)
         
-        # Handle any_of if present
+        # Handle any_of
         if "any_of" in schema_def:
-            # This is a simplification - in a real implementation, you'd create a Union type
-            # For now, we'll use Any as a placeholder
-            return Any
+            union_types = [process_schema(subschema, is_required)[0] for subschema in schema_def["any_of"]]
+            return Union[tuple(union_types)], {}
         
-        # Handle nullable types
+        schema_type = schema_def.get("type")
+        field_args = {}
+        
+        # Add description if available
+        if "description" in schema_def:
+            field_args["description"] = schema_def["description"]
+            
+        # Add default if available
+        if "default" in schema_def:
+            field_args["default"] = schema_def["default"]
+        
+        # Handle nullable fields
         nullable = schema_def.get("nullable", False)
-        
-        field_type = None
-        field_info_args = {}
         
         if schema_type == SchemaType.STRING.value:
             field_type = str
             
-            # Add string constraints
+            # Add string-specific constraints
             if "min_length" in schema_def:
-                field_info_args["min_length"] = schema_def["min_length"]
+                field_args["min_length"] = schema_def["min_length"]
             if "max_length" in schema_def:
-                field_info_args["max_length"] = schema_def["max_length"]
+                field_args["max_length"] = schema_def["max_length"]
             if "pattern" in schema_def:
-                field_info_args["regex"] = schema_def["pattern"]
+                field_args["regex"] = schema_def["pattern"]
+            if "enum" in schema_def:
+                field_args["enum"] = schema_def["enum"]
+                
+            # Handle format (like date-time, email, etc.)
             if "format" in schema_def:
-                # Format is informational in our implementation
-                pass
+                # You could use specialized types based on format
+                # For simplicity, just adding as a field constraint
+                field_args["format"] = schema_def["format"]
                 
         elif schema_type == SchemaType.NUMBER.value:
             field_type = float
             
-            # Add number constraints
+            # Add number-specific constraints
             if "minimum" in schema_def:
-                field_info_args["ge"] = schema_def["minimum"]
+                field_args["ge"] = schema_def["minimum"]
             if "maximum" in schema_def:
-                field_info_args["le"] = schema_def["maximum"]
+                field_args["le"] = schema_def["maximum"]
                 
         elif schema_type == SchemaType.INTEGER.value:
             field_type = int
             
-            # Add integer constraints
+            # Add integer-specific constraints
             if "minimum" in schema_def:
-                field_info_args["ge"] = schema_def["minimum"]
+                field_args["ge"] = schema_def["minimum"]
             if "maximum" in schema_def:
-                field_info_args["le"] = schema_def["maximum"]
+                field_args["le"] = schema_def["maximum"]
                 
         elif schema_type == SchemaType.BOOLEAN.value:
             field_type = bool
             
         elif schema_type == SchemaType.ARRAY.value:
-            item_type = process_schema(schema_def.get("items", {}))
+            item_type, _ = process_schema(schema_def.get("items", {}))
             field_type = List[item_type]
             
-            # Add array constraints
+            # Add array-specific constraints
             if "min_items" in schema_def:
-                field_info_args["min_items"] = schema_def["min_items"]
+                field_args["min_items"] = schema_def["min_items"]
             if "max_items" in schema_def:
-                field_info_args["max_items"] = schema_def["max_items"]
+                field_args["max_items"] = schema_def["max_items"]
                 
         elif schema_type == SchemaType.OBJECT.value:
             # Create a nested model for object types
             nested_name = schema_def.get("title", f"NestedModel{len(model_cache)}")
             
             if nested_name in model_cache:
-                return model_cache[nested_name]
+                return model_cache[nested_name], {}
                 
             nested_properties = schema_def.get("properties", {})
             nested_required = schema_def.get("required", [])
             nested_fields = {}
-            
-            # Object constraints
-            if "min_properties" in schema_def:
-                # min_properties would need custom validation
-                pass
-            if "max_properties" in schema_def:
-                # max_properties would need custom validation
-                pass
             
             # Create placeholder to avoid circular references
             placeholder_model = type(nested_name, (BaseModel,), {})
@@ -226,49 +224,35 @@ def create_model_from_schema(schema: dict) -> Type[BaseModel]:
             
             for prop_name, prop_schema in nested_properties.items():
                 prop_required = prop_name in nested_required
-                prop_type, prop_info = process_schema_with_constraints(prop_schema, prop_required)
+                prop_type, prop_field_args = process_schema(prop_schema, prop_required)
                 
-                nested_fields[prop_name] = (prop_type, prop_info)
+                if not prop_required:
+                    if prop_field_args and "default" in prop_field_args:
+                        nested_fields[prop_name] = (prop_type, Field(**prop_field_args))
+                    else:
+                        nested_fields[prop_name] = (Optional[prop_type], Field(default=None, **prop_field_args))
+                else:
+                    nested_fields[prop_name] = (prop_type, Field(..., **prop_field_args))
             
             # Create the actual model and update cache
             nested_model = create_model(nested_name, **nested_fields)
-            
-            # Add description as model docstring if available
-            if "description" in schema_def:
-                nested_model.__doc__ = schema_def["description"]
-                
             model_cache[nested_name] = nested_model
-            return nested_model
+            field_type = nested_model
+            
         else:
             field_type = Any
         
-        # Handle enum values
-        if "enum" in schema_def:
-            # This is a simplification - in a real implementation,
-            # you'd create an Enum type
-            field_info_args["enum"] = schema_def["enum"]
-        
-        # Handle default values
-        if "default" in schema_def:
-            field_info_args["default"] = schema_def["default"]
-            
-        # For nullable types, wrap with Optional if not required
-        if nullable and is_required:
+        # Handle nullable fields
+        if nullable and schema_type != SchemaType.OBJECT.value:
             field_type = Optional[field_type]
-            
-        return field_type, field_info_args
+            if "default" not in field_args:
+                field_args["default"] = None
+        
+        return field_type, field_args
     
-    def process_schema_with_constraints(schema_def, is_required=True):
-        field_type, field_info_args = process_schema(schema_def, is_required)
-        
-        # If not required and no default is specified, make it Optional with None default
-        if not is_required and "default" not in field_info_args:
-            field_type = Optional[field_type]
-            field_info = Field(default=None, **field_info_args)
-        else:
-            field_info = Field(..., **field_info_args) if is_required else Field(**field_info_args)
-            
-        return field_type, field_info
+    # Check if there are unsupported fields being used
+    if unsupported_fields:
+        raise ValueError(f"Schema contains unsupported fields: {', '.join(unsupported_fields)}")
     
     # Process the root schema
     model_name = schema.get("title", "Schema")
@@ -278,14 +262,15 @@ def create_model_from_schema(schema: dict) -> Type[BaseModel]:
     
     for field_name, field_schema in properties.items():
         field_required = field_name in required_fields
-        field_type, field_info = process_schema_with_constraints(field_schema, field_required)
-        field_definitions[field_name] = (field_type, field_info)
+        field_type, field_args = process_schema(field_schema, field_required)
+        
+        if field_required:
+            field_definitions[field_name] = (field_type, Field(..., **field_args))
+        else:
+            if "default" in field_args:
+                field_definitions[field_name] = (field_type, Field(**field_args))
+            else:
+                field_definitions[field_name] = (Optional[field_type], Field(default=None, **field_args))
     
     # Create the model
-    model = create_model(model_name, **field_definitions)
-    
-    # Add description as model docstring if available
-    if "description" in schema:
-        model.__doc__ = schema["description"]
-        
-    return model
+    return create_model(model_name, **field_definitions)
