@@ -3,8 +3,10 @@ import inspect
 from pydantic import BaseModel
 from typing import Callable, Dict
 
+from pydantic_core import from_json
 
-def extract_json_from_str(response: str) -> tuple[dict, str, str]:
+
+def extract_json_from_str(response: str) -> tuple[dict, str, str, bool]:
     """
     Extracts a JSON object from a string.
 
@@ -12,7 +14,7 @@ def extract_json_from_str(response: str) -> tuple[dict, str, str]:
         response (str): The string containing the JSON object.
 
     Returns:
-        dict: The extracted JSON object.
+        leading string, json object, trailing string, partial Json (Boolean)
 
     Raises:
         ValueError: If the string does not contain a valid JSON object.
@@ -20,9 +22,12 @@ def extract_json_from_str(response: str) -> tuple[dict, str, str]:
     try:
         json_start = response.index("{")
         json_end = response.rfind("}")
-        return json.loads(response[json_start : json_end + 1]), response[0:json_start], response[json_end + 1:]
-    except Exception as e:
-        raise ValueError("No valid JSON structure found in the input string")
+        return json.loads(response[json_start : json_end + 1]), response[0:json_start], response[json_end + 1:], False # full Json
+    except Exception:
+        try:
+            return from_json(response[json_start :], allow_partial=True), response[0:json_start], "", True # partial Json
+        except Exception as e:
+            raise ValueError("No valid JSON structure found in the input string: " + str(e))
 
 def function_to_openai_definition(tool: Callable) -> Dict:
     name = tool.__name__

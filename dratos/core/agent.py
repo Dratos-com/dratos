@@ -50,6 +50,7 @@ class Agent:
             response_schema: Dict = None,
             response_validation: bool = False, # only with reponse_model or response_schema
             json_response: bool = False, # only with reponse_model or response_schema
+            continue_if_partial_json_response: bool = False,
             completion_setting: Dict = {},
         ):
         self.name = name
@@ -65,7 +66,7 @@ class Agent:
         self.markdown_response = markdown_response
         self.verbose = verbose
         self.system_prompt = system_prompt
-          
+        self.continue_if_partial_json_response = continue_if_partial_json_response
         self.messages = []
 
         # Logging
@@ -131,17 +132,20 @@ class Agent:
         self.append_message(content, role, **kwargs)
         pretty(self, content, role) if verbose else None
 
-    def pydantic_validation(self, response:str)-> Type[BaseModel]:
+    def pydantic_validation(self, response:str)-> tuple[Type[BaseModel], bool]:
         """Validates the response using Pydantic."""
-        parsed_json, _, _ = extract_json_from_str(response)
-        parameters = json.dumps(parsed_json)
+        parsed_json, _, _, partial_json_response = extract_json_from_str(response)
+        if partial_json_response:
+            logger.warning("⚠️ Partial JSON response received")
+        #parameters = json.dumps(parsed_json)
         try:
-            model = self.response_model.__pydantic_validator__.validate_json(parameters, strict=True)
+            #model = self.response_model.__pydantic_validator__.validate_json(parameters, strict=True)
+            model = self.response_model.model_validate(parsed_json)
             logger.info(f"✅ Response format is valid")
             if self.json_response:
-                return parsed_json
+                return parsed_json, partial_json_response
             else:
-                return model
+                return model, partial_json_response
         except Exception as e:
             logger.error(f"❌ Response format is not valid: {e}")
             raise e
@@ -179,11 +183,26 @@ class Agent:
 
         # Validation
         if self.response_validation:
-            response = self.pydantic_validation(response)
+            response, partial_json_response = self.pydantic_validation(response)
 
+            if partial_json_response and self.continue_if_partial_json_response:
+                def find_deepest_object(model: BaseModel) -> Any:
+                    deepest_object = model
+                    for _, field_value in model:
+                        if isinstance(field_value, BaseModel):
+                            deeper_object = find_deepest_object(field_value)
+                            deepest_object = deeper_object
+                    return deepest_object
+                
+                deepest_object = find_deepest_object(response)
+                
+                prompt = f"You stopped in the middle of your response, here is the last valid recorded object: {deepest_object.json()}, continue"
+
+                response = self.sync_gen(prompt)
+                
         # Json response
         if self.json_response and isinstance(response, str):
-            response, _, _ = extract_json_from_str(response)
+            response, _, _, _ = extract_json_from_str(response)
 
         return response
     
