@@ -133,21 +133,19 @@ class Agent:
         self.append_message(content, role, **kwargs)
         pretty(self, content, role) if verbose else None
 
-    def pydantic_validation(self, response:str)-> tuple[Type[BaseModel], bool]:
+    def pydantic_validation(self, response:str, continue_generation: bool=False)-> tuple[Type[BaseModel], bool]:
         """Validates the response using Pydantic."""
         parsed_json, _, _, partial_json_response = extract_json_from_str(response)
         try:
             if partial_json_response:
                 logger.warning("⚠️ Partial JSON response received")
                 valid_json = recursive_model_validate(self.response_model, parsed_json)
-                return valid_json, partial_json_response
+                model = self.response_model.model_validate(valid_json)
             else:
                 model = self.response_model.model_validate(parsed_json)
                 logger.info(f"✅ Response format is valid")
-                if self.json_response:
-                    return parsed_json, False
-                else:
-                    return model, False
+
+            return model, partial_json_response
         except Exception as e:
             logger.error(f"❌ Response format is not valid: {e}")
             raise e
@@ -191,7 +189,7 @@ class Agent:
         # Validation
         if self.response_validation:
             if continue_generation is not None:
-                response, partial_json_response = self.pydantic_validation(response)
+                response, partial_json_response = self.pydantic_validation(response, True)
                 response = merge_pydantic_models(continue_generation, response)
             else:
                 response, partial_json_response = self.pydantic_validation(response)
@@ -201,8 +199,11 @@ class Agent:
                 response = self.sync_gen(prompt=prompt, continue_generation=response)
                 
         # Json response
-        if self.json_response and isinstance(response, str):
-            response, _, _, _ = extract_json_from_str(response)
+        if self.json_response:
+            if isinstance(response, str):
+                response, _, _, _ = extract_json_from_str(response)
+            else:
+                response = response.model_dump()
 
         return response
     
