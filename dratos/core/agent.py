@@ -195,16 +195,16 @@ class Agent:
                 response, partial_json_response = self.pydantic_validation(response)
 
             if partial_json_response and self.continue_if_partial_json_response:
-                prompt = f"You stopped in the middle of your response, continue generating exactly where you left off."
+                prompt = f"You stopped in the middle of your response, continue generating exactly where you left off. Do not rewrite the previous response, just continue."
                 response = self.sync_gen(prompt=prompt, continue_generation=response)
                 
         # Json response
         if self.json_response:
             if isinstance(response, str):
                 response, _, _, _ = extract_json_from_str(response)
-            else:
-                response = response.model_dump()
-
+            elif isinstance(response, BaseModel):
+                response = response.model_dump_json()
+        
         return response
     
     async def async_gen(self, prompt: str | Dict[str, Any], **kwargs):
