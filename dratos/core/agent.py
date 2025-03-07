@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 from dratos.utils.utils import function_to_openai_definition, pydantic_to_openai_definition, extract_json_from_str
 from dratos.utils.schema_utils import validate_schema, create_model_from_schema
+from dratos.utils.pydantic_utils import recursive_model_validate, merge_pydantic_models
 
 from dratos.utils.pretty import pretty, pretty_stream
 from dratos.memory.mem0 import Memory
@@ -135,32 +136,38 @@ class Agent:
     def pydantic_validation(self, response:str)-> tuple[Type[BaseModel], bool]:
         """Validates the response using Pydantic."""
         parsed_json, _, _, partial_json_response = extract_json_from_str(response)
-        if partial_json_response:
-            logger.warning("⚠️ Partial JSON response received")
-        #parameters = json.dumps(parsed_json)
         try:
-            #model = self.response_model.__pydantic_validator__.validate_json(parameters, strict=True)
-            model = self.response_model.model_validate(parsed_json)
-            logger.info(f"✅ Response format is valid")
-            if self.json_response:
-                return parsed_json, partial_json_response
+            if partial_json_response:
+                logger.warning("⚠️ Partial JSON response received")
+                valid_json = recursive_model_validate(self.response_model, parsed_json)
+                return valid_json, partial_json_response
             else:
-                return model, partial_json_response
+                model = self.response_model.model_validate(parsed_json)
+                logger.info(f"✅ Response format is valid")
+                if self.json_response:
+                    return parsed_json, False
+                else:
+                    return model, False
         except Exception as e:
             logger.error(f"❌ Response format is not valid: {e}")
             raise e
     
-    def sync_gen(self, prompt: str | Dict[str, Any], **kwargs):
-        # Setup
-        if self.memory:
-            prompt = self.get_context(prompt)
+    def sync_gen(self, prompt: str | Dict[str, Any], continue_generation: Type[BaseModel]=None, **kwargs):
+        
+        if continue_generation is None:
+            # Setup
+            if self.memory:
+                prompt = self.get_context(prompt)
+        else:
+            self.history = True # activate history to keep the last message
+            logger.info("Continuing generation...")
 
         self.record_message(prompt, role="Prompt")
         self.log_agent_info()
 
         completion_setting = kwargs if kwargs else self.completion_setting
         tools = self.tool_definition()
-
+        
         # Generation
         response = self.llm.sync_gen(
             response_model=self.response_model,
@@ -183,22 +190,15 @@ class Agent:
 
         # Validation
         if self.response_validation:
-            response, partial_json_response = self.pydantic_validation(response)
+            if continue_generation is not None:
+                response, partial_json_response = self.pydantic_validation(response)
+                response = merge_pydantic_models(continue_generation, response)
+            else:
+                response, partial_json_response = self.pydantic_validation(response)
 
             if partial_json_response and self.continue_if_partial_json_response:
-                def find_deepest_object(model: BaseModel) -> Any:
-                    deepest_object = model
-                    for _, field_value in model:
-                        if isinstance(field_value, BaseModel):
-                            deeper_object = find_deepest_object(field_value)
-                            deepest_object = deeper_object
-                    return deepest_object
-                
-                deepest_object = find_deepest_object(response)
-                
-                prompt = f"You stopped in the middle of your response, here is the last valid recorded object: {deepest_object.json()}, continue"
-
-                response = self.sync_gen(prompt)
+                prompt = f"You stopped in the middle of your response, continue generating exactly where you left off."
+                response = self.sync_gen(prompt=prompt, continue_generation=response)
                 
         # Json response
         if self.json_response and isinstance(response, str):
