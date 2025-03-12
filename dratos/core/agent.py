@@ -203,7 +203,7 @@ class Agent:
             if isinstance(response, str):
                 response, _, _, _ = extract_json_from_str(response)
             elif isinstance(response, BaseModel):
-                response = response.model_dump_json()
+                response = response.model_dump()
         
         return response
     
