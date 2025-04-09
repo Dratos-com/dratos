@@ -25,6 +25,7 @@ def extract_json_from_str(response: str) -> tuple[dict, str, str, bool]:
         return json.loads(response[json_start : json_end + 1]), response[0:json_start], response[json_end + 1:], False # full Json
     except Exception:
         try:
+            json_start = response.index("{")
             return from_json(response[json_start :], allow_partial=True), response[0:json_start], "", True # partial Json
         except Exception as e:
             raise ValueError("No valid JSON structure found in the input string: " + str(e))

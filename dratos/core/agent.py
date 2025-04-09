@@ -204,7 +204,6 @@ class Agent:
                 response, _, _, _ = extract_json_from_str(response)
             elif isinstance(response, BaseModel):
                 response = response.model_dump()
-                response, _, _, _ = extract_json_from_str(response) # TODO: Not optimal
         
         return response
     
