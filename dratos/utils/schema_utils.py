@@ -166,7 +166,7 @@ def create_model_from_schema(schema: dict) -> Type[BaseModel]:
             if "max_length" in schema_def:
                 field_args["max_length"] = schema_def["max_length"]
             if "pattern" in schema_def:
-                field_args["regex"] = schema_def["pattern"]
+                field_args["pattern"] = schema_def["pattern"]
             if "enum" in schema_def:
                 field_args["enum"] = schema_def["enum"]
                 
