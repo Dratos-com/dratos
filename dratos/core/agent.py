@@ -139,13 +139,14 @@ class Agent:
         try:
             if partial_json_response:
                 logger.warning("⚠️ Partial JSON response received")
-                valid_json = recursive_model_validate(self.response_model, parsed_json)
+                valid_json, invalid_model = recursive_model_validate(self.response_model, parsed_json)
                 model = self.response_model.model_validate(valid_json)
+                return model, True, invalid_model
             else:
                 model = self.response_model.model_validate(parsed_json)
                 logger.info(f"✅ Response format is valid")
 
-            return model, partial_json_response
+            return model, False, None
         except Exception as e:
             logger.error(f"❌ Response format is not valid: {e}")
             raise e
@@ -189,13 +190,22 @@ class Agent:
         # Validation
         if self.response_validation:
             if continue_generation is not None:
-                response, partial_json_response = self.pydantic_validation(response, True)
+                response, partial_json_response, invalid_model = self.pydantic_validation(response, True)
                 response = merge_pydantic_models(continue_generation, response)
             else:
-                response, partial_json_response = self.pydantic_validation(response)
+                response, partial_json_response, invalid_model = self.pydantic_validation(response)
 
             if partial_json_response and self.continue_if_partial_json_response:
-                prompt = f"You stopped in the middle of your response, continue generating exactly where you left off. Do not rewrite the previous response, just continue."
+                prompt = f"""
+You stopped in the middle of your response generating {self.response_model.__name__} elements. 
+
+The following data you generted last is invalid:
+{invalid_model}
+
+Continue listing {self.response_model.__name__} elements where you left off to complete your previous response.
+
+Do not rewrite the previous response objects, just continue.
+"""
                 response = self.sync_gen(prompt=prompt, continue_generation=response)
                 
         # Json response

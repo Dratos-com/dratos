@@ -110,10 +110,10 @@ def recursive_model_validate(model: BaseModel, data: dict) -> BaseModel:
     invalid_model = largest_invalid_model(tuple_pairs)
     if invalid_model:
         invalid_data = invalid_model[1]
-        return remove_invalid_data(data, invalid_data)
+        return remove_invalid_data(data, invalid_data), invalid_model
         
     else:
-        return model.model_validate(data)
+        return model.model_validate(data), None
 
 
 def recursive_merge(value1: Any, value2: Any) -> Any:
