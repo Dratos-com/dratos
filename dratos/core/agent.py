@@ -51,6 +51,7 @@ class Agent:
             response_schema: Dict = None,
             response_validation: bool = False, # only with reponse_model or response_schema
             json_response: bool = False, # only with reponse_model or response_schema
+            retry_attempts: int = 2,
             continue_if_partial_json_response: bool = False,
             completion_setting: Dict = {},
         ):
@@ -67,7 +68,11 @@ class Agent:
         self.markdown_response = markdown_response
         self.verbose = verbose
         self.system_prompt = system_prompt
+        self.retry_attempts = retry_attempts
         self.continue_if_partial_json_response = continue_if_partial_json_response
+
+        self.retry_count = 0
+        self.error = None
         self.messages = []
 
         # Logging
@@ -133,7 +138,7 @@ class Agent:
         self.append_message(content, role, **kwargs)
         pretty(self, content, role) if verbose else None
 
-    def pydantic_validation(self, response:str, continue_generation: bool=False)-> tuple[Type[BaseModel], bool]:
+    def pydantic_validation(self, response:str)-> tuple[Type[BaseModel], bool]:
         """Validates the response using Pydantic."""
         parsed_json, _, _, partial_json_response = extract_json_from_str(response)
         try:
@@ -149,72 +154,90 @@ class Agent:
             return model, False, None
         except Exception as e:
             logger.error(f"❌ Response format is not valid: {e}")
-            raise e
+            self.error = "pydantic_validation"
+            self.error_message = e
+                    
     
     def sync_gen(self, prompt: str | Dict[str, Any], continue_generation: Type[BaseModel]=None, **kwargs):
         
-        if continue_generation is None:
-            # Setup
-            if self.memory:
-                prompt = self.get_context(prompt)
-        else:
-            self.history = True # activate history to keep the last message
-            logger.info("Continuing generation...")
-
-        self.record_message(prompt, role="Prompt")
-        self.log_agent_info()
-
-        completion_setting = kwargs if kwargs else self.completion_setting
-        tools = self.tool_definition()
-        
-        # Generation
-        response = self.llm.sync_gen(
-            response_model=self.response_model,
-            tools=tools,
-            messages=self.get_messages(),
-            **completion_setting)
-
-        # Tool calling
-        if self.tools and not isinstance(response, str):
-            complete_result = dict()
-            for tool_call in response:
-                for tool in self.tools:
-                    if tool.__name__ == tool_call["name"]:
-                        result = tool(**tool_call["arguments"])
-                        complete_result.update({tool_call["name"]: result})
-            self.record_message(complete_result, role="Response")
-            return complete_result
-        else:
-            self.record_message(response, role="Response")
-
-        # Validation
-        if self.response_validation:
-            if continue_generation is not None:
-                response, partial_json_response, invalid_model = self.pydantic_validation(response, True)
-                response = merge_pydantic_models(continue_generation, response)
+        try:
+            if continue_generation is None:
+                # Setup
+                if self.memory:
+                    prompt = self.get_context(prompt)
             else:
-                response, partial_json_response, invalid_model = self.pydantic_validation(response)
+                self.history = True # activate history to keep the last message
+                logger.info("Continuing generation...")
 
-            if partial_json_response and self.continue_if_partial_json_response:
-                prompt = f"""
-You stopped in the middle of your response generating {self.response_model.__name__} elements. 
+            self.record_message(prompt, role="Prompt")
+            self.log_agent_info()
 
-The following data you generted last is invalid:
-{invalid_model}
+            completion_setting = kwargs if kwargs else self.completion_setting
+            tools = self.tool_definition()
+            
+            # Generation
+            response = self.llm.sync_gen(
+                response_model=self.response_model,
+                tools=tools,
+                messages=self.get_messages(),
+                **completion_setting)
 
-Continue listing {self.response_model.__name__} elements where you left off to complete your previous response.
+            # Tool calling
+            if self.tools and not isinstance(response, str):
+                complete_result = dict()
+                for tool_call in response:
+                    for tool in self.tools:
+                        if tool.__name__ == tool_call["name"]:
+                            result = tool(**tool_call["arguments"])
+                            complete_result.update({tool_call["name"]: result})
+                self.record_message(complete_result, role="Response")
+                return complete_result
+            else:
+                self.record_message(response, role="Response")
 
-Do not rewrite the previous response objects, just continue.
-"""
-                response = self.sync_gen(prompt=prompt, continue_generation=response)
-                
-        # Json response
-        if self.json_response:
-            if isinstance(response, str):
-                response, _, _, _ = extract_json_from_str(response)
-            elif isinstance(response, BaseModel):
-                response = response.model_dump()
+            # Validation
+            if self.response_validation:
+                if continue_generation is not None:
+                    response, partial_json_response, invalid_model = self.pydantic_validation(response, True)
+                    response = merge_pydantic_models(continue_generation, response)
+                else:
+                    response, partial_json_response, invalid_model = self.pydantic_validation(response)
+
+                if partial_json_response and self.continue_if_partial_json_response:
+                    prompt = f"""
+    You stopped in the middle of your response generating {self.response_model.__name__} elements. 
+
+    The following data you generted last is invalid:
+    {invalid_model}
+
+    Continue listing {self.response_model.__name__} elements where you left off to complete your previous response.
+
+    Do not rewrite the previous response objects, just continue.
+    """
+                    response = self.sync_gen(prompt=prompt, continue_generation=response)
+                    
+            # Json response
+            if self.json_response:
+                if isinstance(response, str):
+                    response, _, _, _ = extract_json_from_str(response)
+                elif isinstance(response, BaseModel):
+                    response = response.model_dump()
         
+        except Exception as e:
+            if self.retry_count < self.retry_attempts and self.error == "pydantic_validation":
+                logger.warning(f"⚠️ Response format is not valid, retrying... ({self.retry_count}/{self.retry_attempts})")
+                self.history = True # Keep last message in context
+                self.retry_count += 1
+                prompt = f"""
+The previous response had a Pydantic validation error:
+{self.error_message}
+
+Please fix the error and return the response again.
+                """
+                response = self.sync_gen(prompt=prompt)
+            else:
+                raise e
+
         return response
     
     async def async_gen(self, prompt: str | Dict[str, Any], **kwargs):
