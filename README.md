@@ -83,3 +83,6 @@ To stop Qdrant, you can use Ctrl+C in the terminal where it's running, or stop u
 docker stop <container_id>
 ```
 
+
+# Prompt for continue generation feature
+Continue writting the JSON object exactly where you left off. Complete the JSON raw data directly, without any additional text or code block. start exactly after the last character you wrote in your previous response.

@@ -51,7 +51,7 @@ class Agent:
             response_schema: Dict = None,
             response_validation: bool = False, # only with reponse_model or response_schema
             json_response: bool = False, # only with reponse_model or response_schema
-            retry_attempts: int = 2,
+            retry_attempts: int = 1,
             continue_if_partial_json_response: bool = False,
             completion_setting: Dict = {},
         ):
