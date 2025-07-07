@@ -190,7 +190,9 @@ class Agent:
                         if tool.__name__ == tool_call["name"]:
                             result = tool(**tool_call["arguments"])
                             complete_result.update({tool_call["name"]: result})
-                self.record_message(complete_result, role="Response")
+                # Format tool results for display - create a text representation
+                tool_results_text = "\n".join([f"{tool_name}: {result}" for tool_name, result in complete_result.items()])
+                self.record_message({"text": tool_results_text, **complete_result}, role="Response")
                 return complete_result
             else:
                 self.record_message(response, role="Response")

@@ -48,7 +48,7 @@ class GoogleEngine(BaseEngine):
         self.region = region
 
 
-        super().__init__(engine="OPENAI")
+        super().__init__(engine="GOOGLE")
         
     def initialize(self, asynchronous: bool = False) -> None:
         """

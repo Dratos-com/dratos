@@ -30,15 +30,15 @@ class BaseEngine(ABC):
             self.api_key = "TEST_API_KEY"
 
     @abstractmethod
-    async def initialize(self) -> None:
+    def initialize(self, asynchronous: bool = False) -> None:
         """Initialize the model and any necessary resources.""" 
 
     @abstractmethod
-    async def shutdown(self) -> None:
+    def shutdown(self) -> None:
         """Shutdown the adapter and free resources."""
 
     @abstractmethod
-    async def sync_gen(
+    def sync_gen(
         self,
         model_name: str = None,
         response_model: BaseModel | None = None,
