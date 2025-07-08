@@ -153,11 +153,43 @@ class LiteLLMEngine(BaseEngine):
 
     def shutdown(self) -> None:
         """
-        Shutdown the LiteLLM engine.
-        Note: LiteLLM doesn't require explicit cleanup like SDK clients.
+        Shutdown the LiteLLM engine and close any HTTP sessions.
         """
-        # LiteLLM doesn't maintain persistent connections that need cleanup
-        pass
+        try:
+            # Try to close any aiohttp sessions that litellm might have created
+            if hasattr(self, 'litellm'):
+                # Import aiohttp to close any unclosed sessions
+                try:
+                    import aiohttp
+                    import asyncio
+                    import gc
+                    
+                    # Force garbage collection to trigger cleanup warnings early
+                    gc.collect()
+                    
+                    # Try to get the current event loop and close any sessions
+                    try:
+                        loop = asyncio.get_event_loop()
+                        if not loop.is_closed():
+                            # Find any unclosed aiohttp sessions and close them
+                            for obj in gc.get_objects():
+                                if isinstance(obj, aiohttp.ClientSession) and not obj.closed:
+                                    try:
+                                        # Schedule session close in the loop
+                                        if loop.is_running():
+                                            asyncio.create_task(obj.close())
+                                        else:
+                                            loop.run_until_complete(obj.close())
+                                    except Exception:
+                                        pass  # Ignore errors during cleanup
+                    except Exception:
+                        pass  # No event loop or loop already closed
+                        
+                except ImportError:
+                    pass  # aiohttp not available
+                    
+        except Exception:
+            pass  # Ignore cleanup errors during shutdown
 
     def sync_gen(
         self,
@@ -230,14 +262,19 @@ class LiteLLMEngine(BaseEngine):
     async def async_gen(
         self,
         model_name: str = "gpt-4",
+        response_model: BaseModel | None = None,
+        tools: List[Dict] = None,
         messages: List[Dict] = None,
         **kwargs,
     ) -> AsyncIterator[str]:
         """
         Generate text from the LiteLLM engine asynchronously with streaming.
+        Supports tools and structured output by accumulating the response and post-processing.
         
         Args:
             model_name: Model to use
+            response_model: Pydantic model for structured output
+            tools: List of tool/function definitions
             messages: Conversation messages
             **kwargs: Additional completion parameters
         """
@@ -255,6 +292,15 @@ class LiteLLMEngine(BaseEngine):
             **kwargs
         }
         
+        # Handle structured output
+        if response_model is not None:
+            completion_kwargs["response_format"] = response_model
+            
+        # Handle tools
+        if tools is not None:
+            completion_kwargs["tools"] = tools
+            completion_kwargs["tool_choice"] = "auto"
+        
         # Add Vertex AI specific parameters if using vertex_ai provider
         if self.provider == "vertex_ai" or model_name.startswith("vertex_ai/"):
             if self.vertex_project:
@@ -267,10 +313,57 @@ class LiteLLMEngine(BaseEngine):
         # Make async streaming completion call
         stream = await self.litellm.acompletion(**completion_kwargs)
 
-        # Yield chunks from the stream
-        async for chunk in stream:
-            if chunk.choices[0].delta.content is not None:
-                yield chunk.choices[0].delta.content
+        # Accumulate response for tools/structured output processing
+        if tools is not None or response_model is not None:
+            accumulated_content = ""
+            tool_calls_data = None
+            
+            # Collect all chunks
+            async for chunk in stream:
+                if hasattr(chunk.choices[0].delta, 'tool_calls') and chunk.choices[0].delta.tool_calls:
+                    # Handle tool calls
+                    if tool_calls_data is None:
+                        tool_calls_data = []
+                    
+                    for tool_call in chunk.choices[0].delta.tool_calls:
+                        # Extend tool_calls_data list if needed
+                        while len(tool_calls_data) <= tool_call.index:
+                            tool_calls_data.append({"id": "", "function": {"name": "", "arguments": ""}})
+                        
+                        if tool_call.id:
+                            tool_calls_data[tool_call.index]["id"] = tool_call.id
+                        if tool_call.function.name:
+                            tool_calls_data[tool_call.index]["function"]["name"] = tool_call.function.name
+                        if tool_call.function.arguments:
+                            tool_calls_data[tool_call.index]["function"]["arguments"] += tool_call.function.arguments
+                
+                elif chunk.choices[0].delta.content is not None:
+                    content_chunk = chunk.choices[0].delta.content
+                    accumulated_content += content_chunk
+                    yield content_chunk
+            
+            # Process accumulated response for tools
+            if tool_calls_data:
+                # Return tool calls as the final result
+                result = [
+                    {
+                        "name": tool_call["function"]["name"],
+                        "arguments": json.loads(tool_call["function"]["arguments"]),
+                        "id": tool_call["id"]
+                    }
+                    for tool_call in tool_calls_data
+                ]
+                # For async streaming with tools, we yield the final result as JSON
+                yield json.dumps(result)
+            elif response_model is not None and accumulated_content:
+                # For structured output, the accumulated content should already be formatted
+                # The response_model validation will be handled at the Agent level
+                pass  # Content was already yielded during streaming
+        else:
+            # Standard streaming without tools or structured output
+            async for chunk in stream:
+                if chunk.choices[0].delta.content is not None:
+                    yield chunk.choices[0].delta.content
 
     def format_messages(self, messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """

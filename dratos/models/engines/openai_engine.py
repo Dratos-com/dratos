@@ -120,25 +120,100 @@ class OpenAIEngine(BaseEngine):
     async def async_gen(
         self,
         model_name: str = "gpt-4",
+        response_model: BaseModel | None = None,
+        tools: List[Dict] = None,
         messages: List[Dict] = None,
         **kwargs,
     ) -> AsyncIterator[str]:
+        """
+        Generate text from the OpenAI engine asynchronously with streaming.
+        Supports tools and structured output by accumulating the response and post-processing.
+        """
         
         if not self.client:
             self.initialize(asynchronous=True)
 
         messages = self.format_messages(messages)
 
-        stream = await self.client.chat.completions.create(
-            model=model_name,
-            messages=messages,
-            stream=True,
+        # Prepare completion arguments
+        completion_kwargs = {
+            "model": model_name,
+            "messages": messages,
+            "stream": True,
             **kwargs
-        )
+        }
+        
+        # Handle structured output
+        if response_model is not None:
+            if model_name.startswith("gpt-4o-"):
+                # Use beta.chat.completions.parse for structured output
+                stream = await self.client.beta.chat.completions.parse(
+                    response_format=response_model,
+                    **completion_kwargs
+                )
+            else:
+                # Fallback to regular completion
+                stream = await self.client.chat.completions.create(**completion_kwargs)
+        elif tools is not None:
+            # Add tools to completion
+            completion_kwargs["tools"] = tools
+            completion_kwargs["tool_choice"] = "auto"
+            stream = await self.client.chat.completions.create(**completion_kwargs)
+        else:
+            # Standard streaming
+            stream = await self.client.chat.completions.create(**completion_kwargs)
 
-        async for chunk in stream:
-            if chunk.choices[0].delta.content is not None:
-                yield chunk.choices[0].delta.content
+        # Accumulate response for tools/structured output processing
+        if tools is not None or response_model is not None:
+            accumulated_content = ""
+            tool_calls_data = None
+            
+            # Collect all chunks
+            async for chunk in stream:
+                if hasattr(chunk.choices[0].delta, 'tool_calls') and chunk.choices[0].delta.tool_calls:
+                    # Handle tool calls
+                    if tool_calls_data is None:
+                        tool_calls_data = []
+                    
+                    for tool_call in chunk.choices[0].delta.tool_calls:
+                        # Extend tool_calls_data list if needed
+                        while len(tool_calls_data) <= tool_call.index:
+                            tool_calls_data.append({"id": "", "function": {"name": "", "arguments": ""}})
+                        
+                        if tool_call.id:
+                            tool_calls_data[tool_call.index]["id"] = tool_call.id
+                        if tool_call.function.name:
+                            tool_calls_data[tool_call.index]["function"]["name"] = tool_call.function.name
+                        if tool_call.function.arguments:
+                            tool_calls_data[tool_call.index]["function"]["arguments"] += tool_call.function.arguments
+                
+                elif chunk.choices[0].delta.content is not None:
+                    content_chunk = chunk.choices[0].delta.content
+                    accumulated_content += content_chunk
+                    yield content_chunk
+            
+            # Process accumulated response for tools
+            if tool_calls_data:
+                # Return tool calls as the final result
+                result = [
+                    {
+                        "name": tool_call["function"]["name"],
+                        "arguments": json.loads(tool_call["function"]["arguments"]),
+                        "id": tool_call["id"]
+                    }
+                    for tool_call in tool_calls_data
+                ]
+                # For async streaming with tools, we yield the final result as JSON
+                yield json.dumps(result)
+            elif response_model is not None and accumulated_content:
+                # For structured output, the accumulated content should already be formatted
+                # The response_model validation will be handled at the Agent level
+                pass  # Content was already yielded during streaming
+        else:
+            # Standard streaming without tools or structured output
+            async for chunk in stream:
+                if chunk.choices[0].delta.content is not None:
+                    yield chunk.choices[0].delta.content
 
     def format_messages(self, messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         formatted_messages = []

@@ -200,7 +200,7 @@ class Agent:
             # Validation
             if self.response_validation:
                 if continue_generation is not None:
-                    response, partial_json_response, invalid_model = self.pydantic_validation(response, True)
+                    response, partial_json_response, invalid_model = self.pydantic_validation(response)
                     response = merge_pydantic_models(continue_generation, response)
                 else:
                     response, partial_json_response, invalid_model = self.pydantic_validation(response)
@@ -242,29 +242,97 @@ Please fix the error and return the response again.
 
         return response
     
-    async def async_gen(self, prompt: str | Dict[str, Any], **kwargs):
+    async def async_gen(self, prompt: str | Dict[str, Any], continue_generation: Type[BaseModel]=None, **kwargs):
         
-        # Setup
-        if self.tools or self.response_model:
-            raise ValueError("Cannot use 'tools' and 'response_model' with async_gen, use sync_gen instead.")
-        
-        completion_setting = kwargs if kwargs else self.completion_setting
+        try:
+            if continue_generation is None:
+                # Setup
+                if self.memory:
+                    prompt = self.get_context(prompt)
+            else:
+                self.history = True # activate history to keep the last message
+                logger.info("Continuing generation...")
 
-        if self.memory:
-            prompt = self.get_context(prompt)
+            self.record_message(prompt, role="Prompt")
+            self.log_agent_info()
 
-        self.record_message(prompt, role="Prompt")
-        
-        # Generation
-        response = ""
-        async for chunk in pretty_stream(self,
-                                         messages=self.get_messages(), 
-                                         completion_setting=completion_setting):
-            response += chunk
-            yield chunk
+            completion_setting = kwargs if kwargs else self.completion_setting
+            tools = self.tool_definition()
+            
+            # Generation - accumulate response for post-processing
+            response = ""
+            tool_calls_data = None
+            
+            async for chunk in pretty_stream(self,
+                                           messages=self.get_messages(), 
+                                           completion_setting=completion_setting,
+                                           tools=tools,
+                                           response_model=self.response_model):
+                # Check if this chunk looks like tool calls JSON
+                if chunk.strip().startswith('[') and tools:
+                    try:
+                        tool_calls_data = json.loads(chunk)
+                        break  # Don't yield tool calls, process them instead
+                    except json.JSONDecodeError:
+                        pass  # Not JSON, continue as normal text
+                
+                response += chunk
+                yield chunk
 
-        self.record_message(response, role="Response", verbose=False)
-    
+            # Tool calling
+            if self.tools and tool_calls_data:
+                complete_result = dict()
+                for tool_call in tool_calls_data:
+                    for tool in self.tools:
+                        if tool.__name__ == tool_call["name"]:
+                            result = tool(**tool_call["arguments"])
+                            complete_result.update({tool_call["name"]: result})
+                # Format tool results for display - create a text representation
+                tool_results_text = "\n".join([f"{tool_name}: {result}" for tool_name, result in complete_result.items()])
+                self.record_message({"text": tool_results_text, **complete_result}, role="Response")
+                # Return the tool results instead of yielding more chunks
+                return
+            else:
+                self.record_message(response, role="Response", verbose=False)
+
+            # Validation
+            if self.response_validation:
+                if continue_generation is not None:
+                    response, partial_json_response, invalid_model = self.pydantic_validation(response)
+                    response = merge_pydantic_models(continue_generation, response)
+                else:
+                    response, partial_json_response, invalid_model = self.pydantic_validation(response)
+
+                if partial_json_response and self.continue_if_partial_json_response:
+                    prompt = f"""
+    You stopped in the middle of your response generating {self.response_model.__name__} elements. 
+
+    The following data you generted last is invalid:
+    {invalid_model}
+
+    Continue listing {self.response_model.__name__} elements where you left off to complete your previous response.
+
+    Do not rewrite the previous response objects, just continue.
+    """
+                    async for chunk in self.async_gen(prompt=prompt, continue_generation=response):
+                        yield chunk
+                    
+        except Exception as e:
+            if self.retry_count < self.retry_attempts and self.error == "pydantic_validation":
+                logger.warning(f"⚠️ Response format is not valid, retrying... ({self.retry_count}/{self.retry_attempts})")
+                self.history = True # Keep last message in context
+                self.retry_count += 1
+                prompt = f"""
+The previous response had a Pydantic validation error:
+{self.error_message}
+
+Please fix the error and return the response again.
+                """
+                async for chunk in self.async_gen(prompt=prompt):
+                    yield chunk
+            else:
+                raise e
+
     def response_model_defition(self):
         response_model = pydantic_to_openai_definition(self.response_model)
         return f"""Always respond following the specifications:

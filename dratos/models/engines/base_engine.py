@@ -52,6 +52,8 @@ class BaseEngine(ABC):
     async def async_gen(
         self,
         model_name: str = "gpt-4",
+        response_model: BaseModel | None = None,
+        tools: List[Dict] = None,
         messages: List[Dict] = None,
         **kwargs,
     ) -> AsyncIterator[str]:

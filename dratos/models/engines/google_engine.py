@@ -130,12 +130,21 @@ class GoogleEngine(BaseEngine):
     async def async_gen(
         self,
         model_name: str = "gemini-2.0-flash-001",
+        response_model: BaseModel | None = None,
+        tools: List[Dict] = None,
         messages: List[Dict] = None,
         **kwargs,
     ) -> AsyncIterator[str]:
+        """
+        Generate text from the Google engine asynchronously with streaming.
+        Supports structured output. Tools are not yet implemented for Gemini.
+        """
         
         if not self.client:
             self.initialize(asynchronous=True)
+
+        if tools is not None:
+            raise NotImplementedError("Tool calling is not yet implemented for Gemini.")
 
         messages, system_prompt = self.format_messages(messages)
 
@@ -144,6 +153,11 @@ class GoogleEngine(BaseEngine):
             "system_instruction": system_prompt,
             **kwargs,
         }
+        
+        # Handle structured output
+        if response_model is not None:
+            config["response_mime_type"] = "application/json"
+            config["response_schema"] = response_model
 
         for chunk in self.client.models.generate_content_stream(
             model = model_name,

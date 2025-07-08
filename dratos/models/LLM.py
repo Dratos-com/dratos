@@ -52,16 +52,21 @@ class LLM():
             self.shutdown()
 
     async def async_gen(self, 
+                     response_model: str | Dict | None = None,
+                     tools: List[Dict] = None,
                      messages: List[Dict[str, Any]] = None,
                      timeout: float = 30.0,
                      **kwargs
                      ) -> AsyncIterator[str]:
+        if tools is not None and response_model is not None:
+            raise ValueError("Cannot use both 'tools' and 'response_model' simultaneously.")
+        
         # Always reinitialize the engine before each call
         self.initialize(asynchronous=True)
         
         try:
             async def process_stream():
-                async for chunk in self.engine.async_gen(self.model_name, messages, **kwargs):
+                async for chunk in self.engine.async_gen(self.model_name, response_model, tools, messages, **kwargs):
                     yield chunk
             
             # Create the stream processor

@@ -76,12 +76,14 @@ def pretty(agent: "Agent", message: Dict[str, Any], title: str):
     documents = [key for key in message.keys() if key != "text"]
     logging.info(f"Document(s): {documents}") if documents else None
 
-async def pretty_stream(agent: "Agent", messages: List[Dict[str, Any]], completion_setting: Dict):
+async def pretty_stream(agent: "Agent", messages: List[Dict[str, Any]], completion_setting: Dict, tools: List[Dict] = None, response_model = None):
     
     async def stream():
         response = ""
         tokens = 0
         async for chunk in agent.llm.async_gen(
+                                response_model=response_model,
+                                tools=tools,
                                 messages=messages, 
                                 **completion_setting):
             response += chunk
