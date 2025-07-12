@@ -3,6 +3,7 @@ This module provides an OpenAI engine for generating text using the OpenAI API.
 """
 import os
 import json
+import time
 from urllib.parse import urlparse
 from typing import Dict, List, AsyncIterator, Any, Tuple
 import base64
@@ -54,7 +55,6 @@ class GoogleEngine(BaseEngine):
         """
         Initialize the OpenAI engine with the given configuration.
         """
-
         self.client = GoogleEngine.genai.Client( 
                             credentials=self.credentials,
                             project=self.project_id,
@@ -146,6 +146,7 @@ class GoogleEngine(BaseEngine):
         if tools is not None:
             raise NotImplementedError("Tool calling is not yet implemented for Gemini.")
 
+        # Prepare messages and config
         messages, system_prompt = self.format_messages(messages)
 
         config = {
@@ -159,12 +160,29 @@ class GoogleEngine(BaseEngine):
             config["response_mime_type"] = "application/json"
             config["response_schema"] = response_model
 
-        for chunk in self.client.models.generate_content_stream(
-            model = model_name,
-            contents = messages,
-            config = config,
-        ):
-            yield chunk.text
+        # Start Google API streaming
+        chunks_received = 0
+        total_chars = 0
+        
+        try:
+            stream = self.client.models.generate_content_stream(
+                model = model_name,
+                contents = messages,
+                config = config,
+            )
+            
+            for chunk in stream:
+                chunks_received += 1
+                chunk_text = chunk.text if chunk.text else ""
+                total_chars += len(chunk_text)
+                
+                yield chunk_text
+                
+            logger.info(f"✅ Google API stream completed - {chunks_received} chunks, {total_chars} chars")
+            
+        except Exception as e:
+            logger.error(f"💥 Google API stream exception after {chunks_received} chunks: {str(e)}")
+            raise
 
     def format_messages(self, messages: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], str]:
         """
