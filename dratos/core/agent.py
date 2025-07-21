@@ -158,7 +158,7 @@ class Agent:
             self.error_message = e
                     
     
-    def sync_gen(self, prompt: str | Dict[str, Any], continue_generation: Type[BaseModel]=None, **kwargs):
+    def sync_gen(self, prompt: str | Dict[str, Any], continue_generation: Type[BaseModel]=None, continue_run: int=0, **kwargs):
         
         try:
             if continue_generation is None:
@@ -205,7 +205,7 @@ class Agent:
                 else:
                     response, partial_json_response, invalid_model = self.pydantic_validation(response)
 
-                if partial_json_response and self.continue_if_partial_json_response:
+                if partial_json_response and self.continue_if_partial_json_response and continue_run < 3:
                     prompt = f"""
     You stopped in the middle of your response generating {self.response_model.__name__} elements. 
 
@@ -216,7 +216,7 @@ class Agent:
 
     Do not rewrite the previous response objects, just continue.
     """
-                    response = self.sync_gen(prompt=prompt, continue_generation=response)
+                    response = self.sync_gen(prompt=prompt, continue_generation=response, continue_run=continue_run+1)
                     
             # Json response
             if self.json_response:
@@ -231,10 +231,10 @@ class Agent:
                 self.history = True # Keep last message in context
                 self.retry_count += 1
                 prompt = f"""
-The previous response had a Pydantic validation error:
-{self.error_message}
+The previous generation failed with the following error:
+{e}
 
-Please fix the error and return the response again.
+Address the error.
                 """
                 response = self.sync_gen(prompt=prompt)
             else:
@@ -242,16 +242,12 @@ Please fix the error and return the response again.
 
         return response
     
-    async def async_gen(self, prompt: str | Dict[str, Any], continue_generation: Type[BaseModel]=None, **kwargs):
+    async def async_gen(self, prompt: str | Dict[str, Any], **kwargs):
         
         try:
-            if continue_generation is None:
-                # Setup
-                if self.memory:
-                    prompt = self.get_context(prompt)
-            else:
-                self.history = True # activate history to keep the last message
-                logger.info("Continuing generation...")
+            # Setup
+            if self.memory:
+                prompt = self.get_context(prompt)
 
             self.record_message(prompt, role="Prompt")
             self.log_agent_info()
@@ -297,36 +293,18 @@ Please fix the error and return the response again.
 
             # Validation
             if self.response_validation:
-                if continue_generation is not None:
-                    response, partial_json_response, invalid_model = self.pydantic_validation(response)
-                    response = merge_pydantic_models(continue_generation, response)
-                else:
-                    response, partial_json_response, invalid_model = self.pydantic_validation(response)
-
-                if partial_json_response and self.continue_if_partial_json_response:
-                    prompt = f"""
-    You stopped in the middle of your response generating {self.response_model.__name__} elements. 
-
-    The following data you generted last is invalid:
-    {invalid_model}
-
-    Continue listing {self.response_model.__name__} elements where you left off to complete your previous response.
-
-    Do not rewrite the previous response objects, just continue.
-    """
-                    async for chunk in self.async_gen(prompt=prompt, continue_generation=response):
-                        yield chunk
+                self.pydantic_validation(response)
                     
         except Exception as e:
             if self.retry_count < self.retry_attempts and self.error == "pydantic_validation":
-                logger.warning(f"⚠️ Response format is not valid, retrying... ({self.retry_count}/{self.retry_attempts})")
+                logger.warning(f"⚠️ Response failed, retrying... ({self.retry_count}/{self.retry_attempts})")
                 self.history = True # Keep last message in context
                 self.retry_count += 1
                 prompt = f"""
-The previous response had a Pydantic validation error:
-{self.error_message}
+The previous generation failed with the following error:
+{e}
 
-Please fix the error and return the response again.
+Address the error.
                 """
                 async for chunk in self.async_gen(prompt=prompt):
                     yield chunk

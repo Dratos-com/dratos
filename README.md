@@ -86,3 +86,10 @@ docker stop <container_id>
 
 # Prompt for continue generation feature
 Continue writting the JSON object exactly where you left off. Complete the JSON raw data directly, without any additional text or code block. start exactly after the last character you wrote in your previous response.
+
+
+# Features
+
+
+# Improvements
+support more robust pydantic model generation from json schema https://github.com/richard-gyiko/json-schema-to-pydantic

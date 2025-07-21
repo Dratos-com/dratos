@@ -85,6 +85,7 @@ class LLM():
         
         tokens_yielded = 0
         stream_start_time = time.time()
+        stream_iterator = None
         
         try:
             # Create the stream processor
@@ -123,17 +124,24 @@ class LLM():
         except GeneratorExit:
             elapsed = time.time() - stream_start_time
             logger.warning(f"🛑 LLM GeneratorExit for {stream_id} after {elapsed:.3f}s, {tokens_yielded} tokens")
+            # Don't call shutdown here - the stream is being closed by the caller
             raise
         except Exception as e:
             elapsed = time.time() - stream_start_time
             logger.error(f"💥 LLM exception for {stream_id} after {elapsed:.3f}s: {str(e)}")
             raise
         finally:
-            # Ensure the engine is properly shut down after each call
-            try:
-                self.shutdown()
-            except Exception as e:
-                logger.error(f"❌ Engine shutdown failed for {stream_id}: {str(e)}")
+            # Only shutdown if we're not in the middle of streaming
+            # The GeneratorExit case handles early termination
+            if stream_iterator is None:
+                # Stream never started, safe to shutdown
+                try:
+                    self.shutdown()
+                except Exception as e:
+                    logger.error(f"❌ Engine shutdown failed for {stream_id}: {str(e)}")
+            else:
+                # Stream was active - defer shutdown to avoid closing active sessions
+                pass
             
             total_duration = time.time() - stream_start_time
             logger.info(f"🏁 LLM.async_gen finished for {stream_id} - {total_duration:.3f}s, {tokens_yielded} tokens")

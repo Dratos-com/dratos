@@ -155,41 +155,7 @@ class LiteLLMEngine(BaseEngine):
         """
         Shutdown the LiteLLM engine and close any HTTP sessions.
         """
-        try:
-            # Try to close any aiohttp sessions that litellm might have created
-            if hasattr(self, 'litellm'):
-                # Import aiohttp to close any unclosed sessions
-                try:
-                    import aiohttp
-                    import asyncio
-                    import gc
-                    
-                    # Force garbage collection to trigger cleanup warnings early
-                    gc.collect()
-                    
-                    # Try to get the current event loop and close any sessions
-                    try:
-                        loop = asyncio.get_event_loop()
-                        if not loop.is_closed():
-                            # Find any unclosed aiohttp sessions and close them
-                            for obj in gc.get_objects():
-                                if isinstance(obj, aiohttp.ClientSession) and not obj.closed:
-                                    try:
-                                        # Schedule session close in the loop
-                                        if loop.is_running():
-                                            asyncio.create_task(obj.close())
-                                        else:
-                                            loop.run_until_complete(obj.close())
-                                    except Exception:
-                                        pass  # Ignore errors during cleanup
-                    except Exception:
-                        pass  # No event loop or loop already closed
-                        
-                except ImportError:
-                    pass  # aiohttp not available
-                    
-        except Exception:
-            pass  # Ignore cleanup errors during shutdown
+        pass
 
     def sync_gen(
         self,
